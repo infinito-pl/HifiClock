@@ -25,7 +25,7 @@ def run_clock_screen(test_mode=False):
     RADIUS_INNER_LONG = 362
 
     DARK_RED = (160, 30, 30)
-    NIGHT_BRIGHTNESS = 90
+    NIGHT_BRIGHTNESS = 50
     DAY_BRIGHTNESS = 192
 
     screen = (
