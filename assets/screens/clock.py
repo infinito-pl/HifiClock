@@ -15,6 +15,7 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 def run_clock_screen(test_mode=False):
     locale.setlocale(locale.LC_TIME, "en_US.UTF-8")
     pygame.init()
+    print("[DEBUG] Inicjalizacja pygame zakończona")
 
     WIDTH, HEIGHT = 800, 800
     CENTER_X = WIDTH // 2
@@ -47,11 +48,23 @@ def run_clock_screen(test_mode=False):
     font_date = pygame.font.Font(font_regular, 50)
     font_temp = pygame.font.Font(font_bold, 38)
 
-    weather_icon = pygame.Surface((62, 48))
-    weather_icon.fill(WHITE)
+    weather_icon = None  # Zostanie ustawiona później
+    hourglass_icon_surface = None
     icon_cache = {}
 
-    def load_weather_icon(code):
+    # Wczytanie ikony oczekiwania (hourglass)
+    try:
+        hourglass_svg_path = os.path.join(BASE_DIR, "assets", "icons", "00d.svg")
+        with open(hourglass_svg_path, 'rb') as svg_file:
+            svg_data = svg_file.read()
+            png_data = cairosvg.svg2png(bytestring=svg_data, output_width=62, output_height=48)
+            hourglass_icon_surface = pygame.image.load(io.BytesIO(png_data)).convert_alpha()
+    except Exception as e:
+        print("Błąd ładowania ikony oczekiwania:", e)
+        hourglass_icon_surface = pygame.Surface((62, 48))
+        hourglass_icon_surface.fill((255, 255, 255))
+
+    def load_weather_icon(code, test_mode):
         fallback_map = {
             '03d': '02d', '03n': '02n',
             '04n': '04d',
@@ -93,7 +106,7 @@ def run_clock_screen(test_mode=False):
         except:
             return ""
 
-    def get_weather_data(city, api_key):
+    def get_weather_data(city, api_key, test_mode):
         try:
             url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
             response = requests.get(url)
@@ -101,10 +114,10 @@ def run_clock_screen(test_mode=False):
             temp = round(data['main']['temp'])
             description = data['weather'][0]['description'].capitalize()
             icon_code = data['weather'][0]['icon']
-            weather_icon = load_weather_icon(icon_code)
+            weather_icon = load_weather_icon(icon_code, test_mode)
             return f"{temp}°C | {description} in {city}", weather_icon
         except:
-            return "--°C | Weather unavailable", pygame.Surface((62, 48))
+            raise
 
     def draw_wave_background(surface, time_offset, is_night_time=False):
         surface.fill((0, 0, 0))
@@ -158,7 +171,8 @@ def run_clock_screen(test_mode=False):
         
         if time.time() - last_weather_check > 60:
             brightness = NIGHT_BRIGHTNESS if is_night_time else DAY_BRIGHTNESS
-            os.system(f"echo {brightness} | sudo tee /sys/class/backlight/*/brightness > /dev/null")
+            if not test_mode:
+                os.system(f"echo {brightness} | sudo tee /sys/class/backlight/*/brightness > /dev/null")
 
         if fade_progress >= 1.0:
             prev_second = datetime.now().second
@@ -173,15 +187,17 @@ def run_clock_screen(test_mode=False):
         active_color = DARK_RED if is_night_time else WHITE
 
         if current_time != prev_time_text:
+            print(f"[DEBUG] Aktualny czas: {current_time}, Poprzedni: {prev_time_text}")
             fade_progress = 0.0
             fade_start_time = time.time()
             prev_time_text = current_time
             prev_ring_surface = current_ring_surface
 
-        # Próba pobrania danych pogodowych co 5 sekund jeśli nie zostały jeszcze załadowane lub co 15 minut po ich załadowaniu
-        if (not weather_data_loaded or time.time() - last_weather_check > 900) and (time.time() - last_weather_try > 5):
+        # Próba pobrania danych pogodowych co 5 sekund
+        if time.time() - last_weather_try > 5:
             try:
-                weather_text, weather_icon = get_weather_data(city, API_KEY)
+                weather_text, weather_icon = get_weather_data(city, API_KEY, test_mode)
+                print("[DEBUG] Dane pogodowe załadowane pomyślnie")
                 weather_data_loaded = True
                 last_weather_check = time.time()
             except Exception as e:
@@ -190,6 +206,7 @@ def run_clock_screen(test_mode=False):
 
         if not weather_data_loaded:
             weather_text = "Waiting for weather..."
+            print("[DEBUG] Weather not yet loaded, waiting...")
 
         date_surface = font_date.render(current_date, True, active_color)
         date_rect = date_surface.get_rect(center=(CENTER_X, CENTER_Y - 120))
@@ -211,9 +228,22 @@ def run_clock_screen(test_mode=False):
             weather_text = weather_text[:max_chars - 3] + "..."
         weather_surface = font_small.render(weather_text, True, active_color)
         weather_rect = weather_surface.get_rect(center=(CENTER_X + 40, 547))
-        screen.blit(weather_surface, weather_rect)
         icon_pos = (weather_rect.left - 70, weather_rect.centery - 24)
-        screen.blit(weather_icon, icon_pos)
+
+        if not weather_data_loaded and hourglass_icon_surface:
+            rotation_cycle_duration = 3500  # 0.5 sekundy obrót + 3 sekundy pauza
+            rotation_phase = pygame.time.get_ticks() % rotation_cycle_duration
+            if rotation_phase < 500:
+                rotation_angle = (rotation_phase / 500) * 180
+            else:
+                rotation_angle = 180
+            rotated_icon = pygame.transform.rotate(hourglass_icon_surface, rotation_angle)
+            rotated_rect = rotated_icon.get_rect(center=(icon_pos[0] + 31, icon_pos[1] + 24))
+            screen.blit(rotated_icon, rotated_rect)
+        else:
+            screen.blit(weather_icon, icon_pos)
+
+        screen.blit(weather_surface, weather_rect)
 
         inactive_color = (40, 0, 0) if is_night_time else DARK_GRAY
         current_ring_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
