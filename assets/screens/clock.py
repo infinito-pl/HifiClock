@@ -140,6 +140,9 @@ def run_clock_screen(test_mode=False):
     weather_text = "Loading weather..."
     city = get_city_from_ip()
 
+    weather_data_loaded = False
+    last_weather_try = 0
+
     prev_time_text = ""
     fade_progress = 1.0
     fade_start_time = 0
@@ -175,9 +178,18 @@ def run_clock_screen(test_mode=False):
             prev_time_text = current_time
             prev_ring_surface = current_ring_surface
 
-        if time.time() - last_weather_check > 900:
-            weather_text, weather_icon = get_weather_data(city, API_KEY)
-            last_weather_check = time.time()
+        # Próba pobrania danych pogodowych co 5 sekund jeśli nie zostały jeszcze załadowane lub co 15 minut po ich załadowaniu
+        if (not weather_data_loaded or time.time() - last_weather_check > 900) and (time.time() - last_weather_try > 5):
+            try:
+                weather_text, weather_icon = get_weather_data(city, API_KEY)
+                weather_data_loaded = True
+                last_weather_check = time.time()
+            except Exception as e:
+                print("Pogoda niedostępna, spróbuję ponownie...", e)
+            last_weather_try = time.time()
+
+        if not weather_data_loaded:
+            weather_text = "Waiting for weather..."
 
         date_surface = font_date.render(current_date, True, active_color)
         date_rect = date_surface.get_rect(center=(CENTER_X, CENTER_Y - 120))
