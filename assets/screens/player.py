@@ -9,31 +9,31 @@ import io
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
-def run_player_screen(test_mode=False):
-    pygame.init()
+def run_player_screen(screen, test_mode=False):
+    """
+    Funkcja przyjmuje gotowy 'screen' (pygame.Surface) utworzony w main.py,
+    a także test_mode do rozróżnienia, czy obsługujemy scroll myszy (na Macu),
+    czy gesty dotyku (na RPi).
+    """
 
     WIDTH, HEIGHT = 800, 800
     CENTER_X = WIDTH // 2
     CENTER_Y = HEIGHT // 2
 
-    # Tworzymy okno 800×800 w test_mode, w przeciwnym razie FULLSCREEN
-    screen = (
-        pygame.display.set_mode((WIDTH, HEIGHT))
-        if test_mode
-        else pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
-    )
-    pygame.display.set_caption("HifiClockPlayer")
+    # Nie tworzymy okna – zakładamy, że zrobiono to w main.py
+    # pygame.display.set_caption("HifiClockPlayer") -- opcjonalnie, jeśli chcesz zmienić tytuł
+
     clock = pygame.time.Clock()
     running = True
 
     # Kolory
     WHITE = (255, 255, 255)
     BLACK = (0, 0, 0)
-    SEMI_BLACK = (0, 0, 0, 128)  # np. 50% nakładka
+    SEMI_BLACK = (0, 0, 0, 128)  # Nakładka 50% przezroczystości
 
     # Fonty
     font_regular = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Regular.ttf")
-    font_bold = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
+    font_bold    = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
 
     font_performer = pygame.font.Font(font_bold, 50)    # Wykonawca
     font_album     = pygame.font.Font(font_regular, 50) # Album
@@ -123,10 +123,7 @@ def run_player_screen(test_mode=False):
 
     # Dla obsługi gestów
     start_y = None
-
-    # Wersja docelowa: przesunięcie od dołu do góry w ~200 px (jeśli chcemy w pikselach),
-    # ale jeśli w dotyku to e.y w [0..1], wtedy zrobimy np. 0.8 -> 0.55. Póki co zostawiamy px dla prostoty.
-    SWIPE_THRESHOLD = 200
+    SWIPE_THRESHOLD = 200  # px (lub użyj e.y w [0..1] i *HEIGHT)
 
     while running:
         for event in pygame.event.get():
@@ -134,35 +131,32 @@ def run_player_screen(test_mode=False):
                 running = False
 
             if test_mode:
-                # --- W trybie testowym obsługujemy SCROLL MYSZY ---
+                # W trybie test obsługujemy SCROLL MYSZY
                 if event.type == pygame.MOUSEWHEEL:
                     # scroll up => powrót do clock
                     if event.y > 0:
                         return "clock"
             else:
-                # --- W trybie normalnym: Gest dotyku w pionie (finger) ---
-                # Zamiast MOUSEBUTTONDOWN/UP => FINGERDOWN/UP
+                # W trybie normalnym: obsługa dotyku (FINGER)
                 if event.type == pygame.FINGERDOWN:
-                    start_y = event.y * HEIGHT  # zmieniamy na piksele
+                    start_y = event.y * HEIGHT  # konwersja do px
                 elif event.type == pygame.FINGERUP:
                     if start_y is not None:
                         end_y = event.y * HEIGHT
-                        # Różnica ujemna => swipe w górę
                         delta_y = start_y - end_y
-                        # start_y near bottom + move up > SWIPE_THRESHOLD
+                        # start w dolnej części ekranu + przesunięcie w górę > SWIPE_THRESHOLD
                         if start_y > (HEIGHT - 100) and delta_y > SWIPE_THRESHOLD:
                             return "clock"
 
-            # Ewentualnie obsługa klikania w przyciski itp.
+            # Ewentualnie obsługa klikania w przyciski, np.
             if event.type == pygame.MOUSEBUTTONUP and test_mode:
                 mx, my = event.pos
-                # Sprawdź, czy kliknięto w obszar przycisków...
-                # (zostawiamy w razie potrzeby)
+                # np. sprawdzamy obszary przycisków
 
         # Rysowanie tła
-        screen.fill((0, 0, 0))
+        screen.fill(BLACK)
 
-        # Okładka
+        # Okładka z półprzezroczystą nakładką
         if cover_img:
             cover_surf = cover_img.copy()
             overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -170,7 +164,7 @@ def run_player_screen(test_mode=False):
             cover_surf.blit(overlay, (0, 0))
             screen.blit(cover_surf, (0, 0))
 
-        # Rysowanie pierścienia
+        # Pierścień
         draw_progress_ring(screen, track_progress)
 
         # Teksty
@@ -201,5 +195,6 @@ def run_player_screen(test_mode=False):
         pygame.display.flip()
         clock.tick(60 if test_mode else 30)
 
-    pygame.quit()
+    # Nie wychodzimy do terminala, bo main.py jest pętlą główną
+    # Zamykamy jedynie pętlę:
     return None
