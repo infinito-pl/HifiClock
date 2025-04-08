@@ -1,3 +1,4 @@
+# player.py
 import os
 import sys
 import math
@@ -6,7 +7,7 @@ import pygame
 import cairosvg
 import io
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 def run_player_screen(test_mode=False):
     pygame.init()
@@ -15,6 +16,7 @@ def run_player_screen(test_mode=False):
     CENTER_X = WIDTH // 2
     CENTER_Y = HEIGHT // 2
 
+    # Tworzymy okno 800×800 w test_mode, w przeciwnym razie FULLSCREEN
     screen = (
         pygame.display.set_mode((WIDTH, HEIGHT))
         if test_mode
@@ -24,17 +26,18 @@ def run_player_screen(test_mode=False):
     clock = pygame.time.Clock()
     running = True
 
-    # Kolory i przezroczystości
+    # Kolory
     WHITE = (255, 255, 255)
     BLACK = (0, 0, 0)
-    SEMI_BLACK = (0, 0, 0, 128)  # 50% do okładki
+    SEMI_BLACK = (0, 0, 0, 128)  # np. 50% nakładka
 
+    # Fonty
     font_regular = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Regular.ttf")
-    font_bold    = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
+    font_bold = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
 
-    font_performer = pygame.font.Font(font_bold, 50)   # Wykonawca
-    font_album     = pygame.font.Font(font_regular, 50)# Album
-    font_title     = pygame.font.Font(font_regular, 50)# Tytuł
+    font_performer = pygame.font.Font(font_bold, 50)    # Wykonawca
+    font_album     = pygame.font.Font(font_regular, 50) # Album
+    font_title     = pygame.font.Font(font_regular, 50) # Tytuł
 
     # Przykładowe dane
     performer_text = "Pearl Jam"
@@ -44,7 +47,7 @@ def run_player_screen(test_mode=False):
     def load_svg_button(filename):
         svg_path = os.path.join(BASE_DIR, "assets", "icons", filename)
         try:
-            with open(svg_path, 'rb') as svg_file:
+            with open(svg_path, "rb") as svg_file:
                 svg_data = svg_file.read()
             # Każdy przycisk 158×158
             png_data = cairosvg.svg2png(bytestring=svg_data, output_width=158, output_height=158)
@@ -85,7 +88,7 @@ def run_player_screen(test_mode=False):
     def draw_progress_ring(surface, progress):
         """
         Rysuje łuk postępu od godz.12, rosnący zgodnie z ruchem wskazówek,
-        w pełnym kryciu, a następnie ustawia alpha=128 (50%).
+        w pełnym kryciu, a potem ustawia alpha=128 (50%).
         """
         arc_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         color_full = (255, 255, 255, 255)  # biały, 100% krycia
@@ -98,7 +101,7 @@ def run_player_screen(test_mode=False):
         )
 
         start_angle = -90
-        end_angle = -90 - 360 * progress  # rosnący w dół (CW)
+        end_angle = -90 - 360 * progress  # rosnący do dołu (CW)
 
         angle1 = min(start_angle, end_angle)
         angle2 = max(start_angle, end_angle)
@@ -118,8 +121,11 @@ def run_player_screen(test_mode=False):
     # Testowy postęp
     track_progress = 0.3
 
-    # Zmienna do wykrycia swipe w pionie
+    # Dla obsługi gestów
     start_y = None
+
+    # Wersja docelowa: przesunięcie od dołu do góry w ~200 px (jeśli chcemy w pikselach),
+    # ale jeśli w dotyku to e.y w [0..1], wtedy zrobimy np. 0.8 -> 0.55. Póki co zostawiamy px dla prostoty.
     SWIPE_THRESHOLD = 200
 
     while running:
@@ -127,30 +133,33 @@ def run_player_screen(test_mode=False):
             if event.type == pygame.QUIT:
                 running = False
 
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                start_y = event.pos[1]
-
-            elif event.type == pygame.MOUSEBUTTONUP:
-                if start_y is not None:
-                    end_y = event.pos[1]
-                    # Różnica ujemna => swipe w górę
-                    delta_y = start_y - end_y
-                    # start_y near bottom + move up > SWIPE_THRESHOLD
-                    if start_y > 700 and delta_y > SWIPE_THRESHOLD:
-                        # Wracamy do zegara
+            if test_mode:
+                # --- W trybie testowym obsługujemy SCROLL MYSZY ---
+                if event.type == pygame.MOUSEWHEEL:
+                    # scroll up => powrót do clock
+                    if event.y > 0:
                         return "clock"
-
-                # Tryb test: klik w górnej części
-                if test_mode:
-                    mx, my = event.pos
-                    if my < 100:
-                        # Nie koliduj z przyciskami
-                        if not (btn_prev_rect.collidepoint(mx, my)
-                                or btn_play_rect.collidepoint(mx, my)
-                                or btn_next_rect.collidepoint(mx, my)):
+            else:
+                # --- W trybie normalnym: Gest dotyku w pionie (finger) ---
+                # Zamiast MOUSEBUTTONDOWN/UP => FINGERDOWN/UP
+                if event.type == pygame.FINGERDOWN:
+                    start_y = event.y * HEIGHT  # zmieniamy na piksele
+                elif event.type == pygame.FINGERUP:
+                    if start_y is not None:
+                        end_y = event.y * HEIGHT
+                        # Różnica ujemna => swipe w górę
+                        delta_y = start_y - end_y
+                        # start_y near bottom + move up > SWIPE_THRESHOLD
+                        if start_y > (HEIGHT - 100) and delta_y > SWIPE_THRESHOLD:
                             return "clock"
 
-        # Tło
+            # Ewentualnie obsługa klikania w przyciski itp.
+            if event.type == pygame.MOUSEBUTTONUP and test_mode:
+                mx, my = event.pos
+                # Sprawdź, czy kliknięto w obszar przycisków...
+                # (zostawiamy w razie potrzeby)
+
+        # Rysowanie tła
         screen.fill((0, 0, 0))
 
         # Okładka
@@ -165,29 +174,29 @@ def run_player_screen(test_mode=False):
         draw_progress_ring(screen, track_progress)
 
         # Teksty
-        font_performer_surf = font_performer.render("Pearl Jam", True, WHITE)
-        font_album_surf     = font_album.render("Dark Matter", True, WHITE)
-        font_title_surf     = font_title.render("Waiting for Stevie", True, WHITE)
+        performer_surf = font_performer.render(performer_text, True, WHITE)
+        album_surf     = font_album.render(album_text,      True, WHITE)
+        title_surf     = font_title.render(title_text,      True, WHITE)
 
-        performer_rect = font_performer_surf.get_rect(center=(CENTER_X, CENTER_Y - 240))
-        album_rect     = font_album_surf.get_rect(center=(CENTER_X, CENTER_Y - 160))
+        performer_rect = performer_surf.get_rect(center=(CENTER_X, CENTER_Y - 240))
+        album_rect     = album_surf.get_rect(center=(CENTER_X, CENTER_Y - 160))
 
-        # Przyciski
-        mid_y   = CENTER_Y
+        # Przyciski w oryginalnych pozycjach
+        mid_y = CENTER_Y
         spacing = 200
-        btn_prev_rect  = btn_prev.get_rect(center=(CENTER_X - spacing, mid_y))
-        btn_play_rect  = current_play_button().get_rect(center=(CENTER_X, mid_y))
-        btn_next_rect  = btn_next.get_rect(center=(CENTER_X + spacing, mid_y))
+        btn_prev_rect = btn_prev.get_rect(center=(CENTER_X - spacing, mid_y))
+        btn_play_rect = current_play_button().get_rect(center=(CENTER_X, mid_y))
+        btn_next_rect = btn_next.get_rect(center=(CENTER_X + spacing, mid_y))
 
-        title_rect = font_title_surf.get_rect(center=(CENTER_X, mid_y + 160))
+        title_rect = title_surf.get_rect(center=(CENTER_X, mid_y + 160))
 
         # Rysowanie
-        screen.blit(font_performer_surf, performer_rect)
-        screen.blit(font_album_surf, album_rect)
+        screen.blit(performer_surf, performer_rect)
+        screen.blit(album_surf, album_rect)
         screen.blit(btn_prev, btn_prev_rect)
         screen.blit(current_play_button(), btn_play_rect)
         screen.blit(btn_next, btn_next_rect)
-        screen.blit(font_title_surf, title_rect)
+        screen.blit(title_surf, title_rect)
 
         pygame.display.flip()
         clock.tick(60 if test_mode else 30)

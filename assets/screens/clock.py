@@ -1,3 +1,4 @@
+# clock.py
 import os
 import pygame
 import time
@@ -8,7 +9,7 @@ import cairosvg
 import locale
 from datetime import datetime, time as dt_time
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 def run_clock_screen(test_mode=False):
     locale.setlocale(locale.LC_TIME, "en_US.UTF-8")
@@ -22,53 +23,50 @@ def run_clock_screen(test_mode=False):
     RADIUS_OUTER_LONG = 388
     RADIUS_INNER_LONG = 362
 
-    # Tworzymy okno w trybie test lub fullscreen
     screen = (
         pygame.display.set_mode((WIDTH, HEIGHT))
         if test_mode
         else pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
     )
     pygame.display.set_caption("HiFiBox Clock")
-
-    # Inicjalizujemy clock do sterowania FPS
     clock = pygame.time.Clock()
 
-    # Kolory
     WHITE = (255, 255, 255)
     DARK_GRAY = (51, 51, 51)
 
-    # Ścieżki do fontów
     font_regular = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Regular.ttf")
-    font_bold    = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
+    font_bold = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
 
-    font_large  = pygame.font.Font(font_bold,    212)
-    font_small  = pygame.font.Font(font_regular, 38)
-    font_date   = pygame.font.Font(font_regular, 50)
-    font_temp   = pygame.font.Font(font_bold,    38)
+    font_large = pygame.font.Font(font_bold, 212)
+    font_small = pygame.font.Font(font_regular, 38)
+    font_date = pygame.font.Font(font_regular, 50)
+    font_temp = pygame.font.Font(font_bold, 38)
 
-    # Ikona pogody tymczasowa (na starcie)
     weather_icon = pygame.Surface((62, 48))
     weather_icon.fill(WHITE)
     icon_cache = {}
 
     def load_weather_icon(code):
         fallback_map = {
-            '03d': '02d', '03n': '02n',
-            '04n': '04d',
-            '09n': '09d',
-            '10n': '10d',
-            '11n': '11d',
-            '13n': '13d',
-            '50n': '50d'
+            "03d": "02d",
+            "03n": "02n",
+            "04n": "04d",
+            "09n": "09d",
+            "10n": "10d",
+            "11n": "11d",
+            "13n": "13d",
+            "50n": "50d",
         }
         actual_code = fallback_map.get(code, code)
         svg_path = os.path.join(BASE_DIR, "assets", "icons", f"{actual_code}.svg")
 
         if actual_code not in icon_cache:
             try:
-                with open(svg_path, 'rb') as svg_file:
+                with open(svg_path, "rb") as svg_file:
                     svg_data = svg_file.read()
-                    png_data = cairosvg.svg2png(bytestring=svg_data, output_width=62, output_height=48)
+                    png_data = cairosvg.svg2png(
+                        bytestring=svg_data, output_width=62, output_height=48
+                    )
                     icon_surface = pygame.image.load(io.BytesIO(png_data)).convert_alpha()
                     icon_cache[actual_code] = icon_surface
             except Exception as e:
@@ -92,9 +90,9 @@ def run_clock_screen(test_mode=False):
             url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
             response = requests.get(url, timeout=5)
             data = response.json()
-            temp = round(data['main']['temp'])
-            description = data['weather'][0]['description'].capitalize()
-            icon_code = data['weather'][0]['icon']
+            temp = round(data["main"]["temp"])
+            description = data["weather"][0]["description"].capitalize()
+            icon_code = data["weather"][0]["icon"]
             w_icon = load_weather_icon(icon_code)
             return f"{temp}°C | {description} in {city}", w_icon
         except:
@@ -107,7 +105,7 @@ def run_clock_screen(test_mode=False):
             (80, 0, 160),
             (160, 40, 40),
             (160, 0, 160),
-            (20, 20, 20)
+            (20, 20, 20),
         ]
         for i in range(5):
             wave_surface = pygame.Surface((WIDTH, HEIGHT * 2), pygame.SRCALPHA)
@@ -139,13 +137,15 @@ def run_clock_screen(test_mode=False):
     current_ring_surface = None
 
     running = True
-    start_y = None  # do gesta w pionie
-    SWIPE_THRESHOLD = 200
+
+    # Dla gestu na RPi
+    start_y = None
+    SWIPE_THRESHOLD = 0.25  # swip w docelowym (0..1)
 
     while running:
         current_hour_minute = datetime.now().time()
 
-        # Jasność ekranu (pomijana, jeśli test_mode - by nie wymagać sudo)
+        # Jasność (pomijana w test_mode)
         if not test_mode:
             if time.time() - last_weather_check > 60:
                 if dt_time(5, 0) <= current_hour_minute < dt_time(21, 0):
@@ -153,7 +153,7 @@ def run_clock_screen(test_mode=False):
                 else:
                     os.system("echo 50 | sudo tee /sys/class/backlight/*/brightness > /dev/null")
 
-        # Tło animowane
+        # Tło
         draw_wave_background(screen, time.time())
 
         now = datetime.now()
@@ -161,15 +161,17 @@ def run_clock_screen(test_mode=False):
         current_date = now.strftime("%a, %d %B %Y")
         current_second = now.second
 
-        # Fade logika zmiany czasu
+        # Fade zmiana czasu
         if current_time != prev_time_text:
             fade_progress = 0.0
             fade_start_time = time.time()
             prev_time_text = current_time
             prev_ring_surface = current_ring_surface
 
-        # Pobieranie pogody co 5s aż do skutku, a potem co 15 min
-        if (time.time() - last_weather_try > 5) and (not weather_data_loaded or time.time() - last_weather_check > 900):
+        # Pogoda co 5 s, dopóki nie wczytana
+        if (time.time() - last_weather_try > 5) and (
+            not weather_data_loaded or time.time() - last_weather_check > 900
+        ):
             w_text_candidate, w_icon_candidate = get_weather_data(city, API_KEY)
             if w_text_candidate:
                 print("[DEBUG] Dane pogodowe załadowane pomyślnie")
@@ -181,12 +183,12 @@ def run_clock_screen(test_mode=False):
                 print("[DEBUG] Pogoda niedostępna, spróbuję ponownie...")
             last_weather_try = time.time()
 
-        # Rysowanie daty
+        # Data
         date_surface = font_date.render(current_date, True, WHITE)
         date_rect = date_surface.get_rect(center=(CENTER_X, CENTER_Y - 120))
         screen.blit(date_surface, date_rect)
 
-        # Fade logika
+        # Fade
         elapsed = time.time() - fade_start_time
         if fade_progress < 1.0:
             fade_progress = min(1.0, elapsed / fade_duration)
@@ -201,18 +203,18 @@ def run_clock_screen(test_mode=False):
         # Pogoda
         if not weather_data_loaded:
             weather_text = "Waiting for weather..."
+
         max_chars = 40
         if len(weather_text) > max_chars:
-            weather_text = weather_text[:max_chars - 3] + "..."
+            weather_text = weather_text[: max_chars - 3] + "..."
+
         weather_surface = font_small.render(weather_text, True, WHITE)
         weather_rect = weather_surface.get_rect(center=(CENTER_X + 40, 547))
         screen.blit(weather_surface, weather_rect)
         icon_pos = (weather_rect.left - 70, weather_rect.centery - 24)
-
-        # Ikona pogody (klepsydra obracana, jeśli czekamy - tu pominęliśmy, bo jest w poprzednich wersjach)
         screen.blit(weather_icon, icon_pos)
 
-        # Rysowanie pierścienia sekund
+        # Pierścień sekund
         current_ring_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         for i in range(60):
             angle_deg = i * 6
@@ -225,7 +227,10 @@ def run_clock_screen(test_mode=False):
             x2 = CENTER_X + inner * math.cos(angle_rad)
             y2 = CENTER_Y + inner * math.sin(angle_rad)
             base_color = WHITE if i <= current_second else DARK_GRAY
-            color = (*base_color[:3], int(255 * fade_progress)) if fade_progress < 1.0 else base_color
+            if fade_progress < 1.0:
+                color = (*base_color[:3], int(255 * fade_progress))
+            else:
+                color = base_color
             pygame.draw.line(current_ring_surface, color, (x1, y1), (x2, y2), 2)
 
         if fade_progress < 1.0 and prev_ring_surface:
@@ -238,32 +243,30 @@ def run_clock_screen(test_mode=False):
 
         # Obsługa zdarzeń
         for event in pygame.event.get():
-            print(event) #Pokaż zdarzenia
+            # print(event) # debug
+
             if event.type == pygame.QUIT:
                 running = False
 
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                start_y = event.pos[1]
-
-            elif event.type == pygame.MOUSEBUTTONUP:
-                if start_y is not None:
-                    end_y = event.pos[1]
-                    delta_y = end_y - start_y
-
-                    # Gest z góry na dół
-                    if start_y < 100 and delta_y > SWIPE_THRESHOLD:
-                        # Przechodzimy do playera
+            if test_mode:
+                # --- TRYB TEST: SCROLL KÓŁKI MYSZY ---
+                # Scroll down => player
+                if event.type == pygame.MOUSEWHEEL:
+                    if event.y < 0:
                         return "player"
 
-                # Tryb test: klik w dolnej części
-                if test_mode:
-                    mx, my = event.pos
-                    if my > 700:
-                        return "player"
+            else:
+                # --- RPi: Gest dotyku w pionie (FINGER) ---
+                if event.type == pygame.FINGERDOWN:
+                    start_y = event.y  # 0..1
+                elif event.type == pygame.FINGERUP:
+                    if start_y is not None:
+                        end_y = event.y
+                        # warunek: start < 0.1 i end_y - start_y > SWIPE_THRESHOLD
+                        if start_y < 0.1 and (end_y - start_y) > SWIPE_THRESHOLD:
+                            return "player"
 
-        # Odświeżanie klatek
         clock.tick(30 if dt_time(5, 0) <= current_hour_minute < dt_time(21, 0) else 10)
         pygame.display.flip()
 
-    # Jeśli user wyszedł, brak przejścia do playera
     return None
