@@ -6,16 +6,13 @@ import requests
 import io
 import cairosvg
 import locale
-from datetime import datetime
-from datetime import time as dt_time
+from datetime import datetime, time as dt_time
 
-# Bazowy katalog projektu
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 def run_clock_screen(test_mode=False):
     locale.setlocale(locale.LC_TIME, "en_US.UTF-8")
     pygame.init()
-    print("[DEBUG] Inicjalizacja pygame zakończona")
 
     WIDTH, HEIGHT = 800, 800
     CENTER_X = WIDTH // 2
@@ -25,46 +22,36 @@ def run_clock_screen(test_mode=False):
     RADIUS_OUTER_LONG = 388
     RADIUS_INNER_LONG = 362
 
-    DARK_RED = (160, 30, 30)
-    NIGHT_BRIGHTNESS = 50
-    DAY_BRIGHTNESS = 192
-
+    # Tworzymy okno w trybie test lub fullscreen
     screen = (
         pygame.display.set_mode((WIDTH, HEIGHT))
         if test_mode
         else pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
     )
     pygame.display.set_caption("HiFiBox Clock")
+
+    # Inicjalizujemy clock do sterowania FPS
     clock = pygame.time.Clock()
 
+    # Kolory
     WHITE = (255, 255, 255)
     DARK_GRAY = (51, 51, 51)
 
+    # Ścieżki do fontów
     font_regular = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Regular.ttf")
-    font_bold = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
+    font_bold    = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
 
-    font_large = pygame.font.Font(font_bold, 212)
-    font_small = pygame.font.Font(font_regular, 38)
-    font_date = pygame.font.Font(font_regular, 50)
-    font_temp = pygame.font.Font(font_bold, 38)
+    font_large  = pygame.font.Font(font_bold,    212)
+    font_small  = pygame.font.Font(font_regular, 38)
+    font_date   = pygame.font.Font(font_regular, 50)
+    font_temp   = pygame.font.Font(font_bold,    38)
 
-    weather_icon = None  # Zostanie ustawiona później
-    hourglass_icon_surface = None
+    # Ikona pogody tymczasowa (na starcie)
+    weather_icon = pygame.Surface((62, 48))
+    weather_icon.fill(WHITE)
     icon_cache = {}
 
-    # Wczytanie ikony oczekiwania (hourglass)
-    try:
-        hourglass_svg_path = os.path.join(BASE_DIR, "assets", "icons", "00d.svg")
-        with open(hourglass_svg_path, 'rb') as svg_file:
-            svg_data = svg_file.read()
-            png_data = cairosvg.svg2png(bytestring=svg_data, output_width=62, output_height=48)
-            hourglass_icon_surface = pygame.image.load(io.BytesIO(png_data)).convert_alpha()
-    except Exception as e:
-        print("Błąd ładowania ikony oczekiwania:", e)
-        hourglass_icon_surface = pygame.Surface((62, 48))
-        hourglass_icon_surface.fill((255, 255, 255))
-
-    def load_weather_icon(code, test_mode):
+    def load_weather_icon(code):
         fallback_map = {
             '03d': '02d', '03n': '02n',
             '04n': '04d',
@@ -83,12 +70,6 @@ def run_clock_screen(test_mode=False):
                     svg_data = svg_file.read()
                     png_data = cairosvg.svg2png(bytestring=svg_data, output_width=62, output_height=48)
                     icon_surface = pygame.image.load(io.BytesIO(png_data)).convert_alpha()
-                    if is_night_time:
-                        for x in range(icon_surface.get_width()):
-                            for y in range(icon_surface.get_height()):
-                                r, g, b, a = icon_surface.get_at((x, y))
-                                if a > 0:
-                                    icon_surface.set_at((x, y), (*DARK_RED, a))
                     icon_cache[actual_code] = icon_surface
             except Exception as e:
                 print(f"Błąd ładowania ikony pogody {actual_code}: {e}")
@@ -100,35 +81,28 @@ def run_clock_screen(test_mode=False):
 
     def get_city_from_ip():
         try:
-            response = requests.get("https://ipinfo.io/json")
+            response = requests.get("https://ipinfo.io/json", timeout=5)
             data = response.json()
             return data.get("city", "")
         except:
             return ""
 
-    def get_weather_data(city, api_key, test_mode):
+    def get_weather_data(city, api_key):
         try:
             url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
-            response = requests.get(url)
+            response = requests.get(url, timeout=5)
             data = response.json()
             temp = round(data['main']['temp'])
             description = data['weather'][0]['description'].capitalize()
             icon_code = data['weather'][0]['icon']
-            weather_icon = load_weather_icon(icon_code, test_mode)
-            return f"{temp}°C | {description} in {city}", weather_icon
+            w_icon = load_weather_icon(icon_code)
+            return f"{temp}°C | {description} in {city}", w_icon
         except:
-            raise
+            return None, None
 
-    def draw_wave_background(surface, time_offset, is_night_time=False):
+    def draw_wave_background(surface, time_offset):
         surface.fill((0, 0, 0))
-        night_colors = [
-            (20, 20, 20),
-            (25, 0, 30),
-            (30, 0, 0),
-            (35, 0, 10),
-            (15, 0, 0)
-        ]
-        colors = night_colors if is_night_time else [
+        colors = [
             (45, 105, 140),
             (80, 0, 160),
             (160, 40, 40),
@@ -165,87 +139,80 @@ def run_clock_screen(test_mode=False):
     current_ring_surface = None
 
     running = True
+    start_y = None  # do gesta w pionie
+    SWIPE_THRESHOLD = 200
+
     while running:
         current_hour_minute = datetime.now().time()
-        is_night_time = not (dt_time(5, 0) <= current_hour_minute < dt_time(21, 0))
-        
-        if time.time() - last_weather_check > 60:
-            brightness = NIGHT_BRIGHTNESS if is_night_time else DAY_BRIGHTNESS
-            if not test_mode:
-                os.system(f"echo {brightness} | sudo tee /sys/class/backlight/*/brightness > /dev/null")
 
-        if fade_progress >= 1.0:
-            prev_second = datetime.now().second
+        # Jasność ekranu (pomijana, jeśli test_mode - by nie wymagać sudo)
+        if not test_mode:
+            if time.time() - last_weather_check > 60:
+                if dt_time(5, 0) <= current_hour_minute < dt_time(21, 0):
+                    os.system("echo 192 | sudo tee /sys/class/backlight/*/brightness > /dev/null")
+                else:
+                    os.system("echo 50 | sudo tee /sys/class/backlight/*/brightness > /dev/null")
 
-        draw_wave_background(screen, time.time(), is_night_time)
+        # Tło animowane
+        draw_wave_background(screen, time.time())
 
         now = datetime.now()
         current_time = now.strftime("%H:%M")
         current_date = now.strftime("%a, %d %B %Y")
         current_second = now.second
 
-        active_color = DARK_RED if is_night_time else WHITE
-
+        # Fade logika zmiany czasu
         if current_time != prev_time_text:
-            print(f"[DEBUG] Aktualny czas: {current_time}, Poprzedni: {prev_time_text}")
             fade_progress = 0.0
             fade_start_time = time.time()
             prev_time_text = current_time
             prev_ring_surface = current_ring_surface
 
-        # Próba pobrania danych pogodowych co 5 sekund
-        if time.time() - last_weather_try > 5:
-            try:
-                weather_text, weather_icon = get_weather_data(city, API_KEY, test_mode)
+        # Pobieranie pogody co 5s aż do skutku, a potem co 15 min
+        if (time.time() - last_weather_try > 5) and (not weather_data_loaded or time.time() - last_weather_check > 900):
+            w_text_candidate, w_icon_candidate = get_weather_data(city, API_KEY)
+            if w_text_candidate:
                 print("[DEBUG] Dane pogodowe załadowane pomyślnie")
+                weather_text = w_text_candidate
+                weather_icon = w_icon_candidate
                 weather_data_loaded = True
                 last_weather_check = time.time()
-            except Exception as e:
-                print("Pogoda niedostępna, spróbuję ponownie...", e)
+            else:
+                print("[DEBUG] Pogoda niedostępna, spróbuję ponownie...")
             last_weather_try = time.time()
 
-        if not weather_data_loaded:
-            weather_text = "Waiting for weather..."
-            print("[DEBUG] Weather not yet loaded, waiting...")
-
-        date_surface = font_date.render(current_date, True, active_color)
+        # Rysowanie daty
+        date_surface = font_date.render(current_date, True, WHITE)
         date_rect = date_surface.get_rect(center=(CENTER_X, CENTER_Y - 120))
         screen.blit(date_surface, date_rect)
 
+        # Fade logika
         elapsed = time.time() - fade_start_time
         if fade_progress < 1.0:
             fade_progress = min(1.0, elapsed / fade_duration)
 
-        new_surface = font_large.render(current_time, True, active_color)
-        old_surface = font_large.render(prev_time_text, True, active_color)
+        new_surface = font_large.render(current_time, True, WHITE)
+        old_surface = font_large.render(prev_time_text, True, WHITE)
         new_surface.set_alpha(int(255 * fade_progress))
         old_surface.set_alpha(int(255 * (1.0 - fade_progress)))
         screen.blit(old_surface, old_surface.get_rect(center=(CENTER_X, CENTER_Y)))
         screen.blit(new_surface, new_surface.get_rect(center=(CENTER_X, CENTER_Y)))
 
+        # Pogoda
+        if not weather_data_loaded:
+            weather_text = "Waiting for weather..."
         max_chars = 40
         if len(weather_text) > max_chars:
             weather_text = weather_text[:max_chars - 3] + "..."
-        weather_surface = font_small.render(weather_text, True, active_color)
+        weather_surface = font_small.render(weather_text, True, WHITE)
         weather_rect = weather_surface.get_rect(center=(CENTER_X + 40, 547))
+        screen.blit(weather_surface, weather_rect)
         icon_pos = (weather_rect.left - 70, weather_rect.centery - 24)
 
-        if not weather_data_loaded and hourglass_icon_surface:
-            rotation_cycle_duration = 3500  # 0.5 sekundy obrót + 3 sekundy pauza
-            rotation_phase = pygame.time.get_ticks() % rotation_cycle_duration
-            if rotation_phase < 500:
-                rotation_angle = (rotation_phase / 500) * 180
-            else:
-                rotation_angle = 180
-            rotated_icon = pygame.transform.rotate(hourglass_icon_surface, rotation_angle)
-            rotated_rect = rotated_icon.get_rect(center=(icon_pos[0] + 31, icon_pos[1] + 24))
-            screen.blit(rotated_icon, rotated_rect)
-        else:
-            screen.blit(weather_icon, icon_pos)
+        # Ikona pogody (klepsydra obracana, jeśli czekamy - tu pominęliśmy, bo jest w poprzednich wersjach)
+        screen.blit(weather_icon, icon_pos)
 
-        screen.blit(weather_surface, weather_rect)
-
-        inactive_color = (40, 0, 0) if is_night_time else DARK_GRAY
+        # Rysowanie pierścienia sekund
         current_ring_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         for i in range(60):
             angle_deg = i * 6
@@ -257,7 +224,7 @@ def run_clock_screen(test_mode=False):
             y1 = CENTER_Y + outer * math.sin(angle_rad)
             x2 = CENTER_X + inner * math.cos(angle_rad)
             y2 = CENTER_Y + inner * math.sin(angle_rad)
-            base_color = active_color if i <= current_second else inactive_color
+            base_color = WHITE if i <= current_second else DARK_GRAY
             color = (*base_color[:3], int(255 * fade_progress)) if fade_progress < 1.0 else base_color
             pygame.draw.line(current_ring_surface, color, (x1, y1), (x2, y2), 2)
 
@@ -269,12 +236,33 @@ def run_clock_screen(test_mode=False):
         else:
             screen.blit(current_ring_surface, (0, 0))
 
-        clock.tick(30 if dt_time(5, 0) <= current_hour_minute < dt_time(21, 0) else 10)
-        pygame.display.flip()
-
+        # Obsługa zdarzeń
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
-    os.system("echo 50 | sudo tee /sys/class/backlight/*/brightness > /dev/null")
-    pygame.quit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                start_y = event.pos[1]
+
+            elif event.type == pygame.MOUSEBUTTONUP:
+                if start_y is not None:
+                    end_y = event.pos[1]
+                    delta_y = end_y - start_y
+
+                    # Gest z góry na dół
+                    if start_y < 100 and delta_y > SWIPE_THRESHOLD:
+                        # Przechodzimy do playera
+                        return "player"
+
+                # Tryb test: klik w dolnej części
+                if test_mode:
+                    mx, my = event.pos
+                    if my > 700:
+                        return "player"
+
+        # Odświeżanie klatek
+        clock.tick(30 if dt_time(5, 0) <= current_hour_minute < dt_time(21, 0) else 10)
+        pygame.display.flip()
+
+    # Jeśli user wyszedł, brak przejścia do playera
+    return None
