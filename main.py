@@ -2,15 +2,19 @@
 import os
 import sys
 import pygame
+pygame.init()
+driver = pygame.display.get_driver()
+print("Current SDL driver:", driver)
+os.environ["SDL_VIDEODRIVER"] = driver
+os.environ["SDL_EVDEV_TOUCHDEVICE"] = "/dev/input/event1"
 from assets.screens.clock import run_clock_screen
 from assets.screens.player import run_player_screen
 
 if __name__ == "__main__":
-    os.environ["SDL_VIDEO_CENTERED"] = "1"
-    pygame.init()
     
-    driver = pygame.display.get_driver()
-    print("Current SDL driver:", driver)
+    os.environ["SDL_VIDEO_CENTERED"] = "1"
+
+    #pygame.init()
 
     args = sys.argv
     test_mode = "--test" in args
