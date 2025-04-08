@@ -8,6 +8,9 @@ from assets.screens.player import run_player_screen
 if __name__ == "__main__":
     os.environ["SDL_VIDEO_CENTERED"] = "1"
     pygame.init()
+    
+    driver = pygame.display.get_driver()
+    print("Current SDL driver:", driver)
 
     args = sys.argv
     test_mode = "--test" in args
