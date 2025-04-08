@@ -11,6 +11,7 @@ player_mode = "--player" in args
 if not test_mode:
     os.environ["SDL_VIDEODRIVER"] = "kmsdrm"
     os.environ["SDL_EVDEV_TOUCHDEVICE"] = "/dev/input/event1"
+    os.environ["SDL_TOUCH_MOUSE_EVENTS"] = "1"
 
 import pygame
 
