@@ -11,6 +11,7 @@ def main():
     # lub na podstawie sys.argv
 
     pygame.init()
+    pygame.mixer.quit()
 
     # Ustal, czy test_mode (okno) czy fullscreen
     test_mode = "--test" in sys.argv
