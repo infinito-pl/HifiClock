@@ -41,7 +41,7 @@ def run_player_screen(screen, test_mode=False):
     # Fonty (zakładamy, że Barlow-Regular.ttf, Barlow-Bold.ttf są w assets/fonts)
     font_regular_path = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Regular.ttf")
     font_bold_path    = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
-    font_uppercase_path = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Regular.ttf").upper()
+    font_uppercase_path = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Regular.ttf")
 
     font_artist  = pygame.font.Font(font_bold_path,    50)  # Wykonawca
     font_album   = pygame.font.Font(font_uppercase_path, 36)  # Album
