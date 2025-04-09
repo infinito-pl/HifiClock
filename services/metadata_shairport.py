@@ -1,97 +1,70 @@
-# services/metadata_shairport.py
+# metadata_shairport.py
 
 import os
-import time
+import select
 
-PIPE_PATH = "/tmp/shairport-sync-metadata"
+PIPE_PATH = "/tmp/shairport-sync-metadata"  # przykładowa ścieżka potoku
 
 def get_current_track_info_shairport():
     """
-    Zwraca krotkę (title, artist, album, cover_image_path).
-    Lub (None, None, None, None), jeśli jeszcze nic nie wiadomo.
-
-    Uwaga: W tym przykładzie odczytujemy tylko ostatnie metadane 
-    ze strumienia i zakładamy, że od momentu startu Shairport 
-    (bądź odtwarzania) w pipe przychodzą kolejne ramki 'ssnc' 
-    z różnymi kodami, np. 'asar' (artist), 'asal' (album), 'minm' (title).
+    Nieblokujący odczyt z potoku Shairport Sync, zwraca (title, artist, album, cover_path).
+    Jeśli brak danych, zwraca None, None, None, None.
     """
 
-    # Zmiennie globalne / modułowe, w których przechowujemy bieżące metadane
-    global last_title, last_artist, last_album, last_cover_path
-
-    # Jeśli wcześniej nie zainicjalizowaliśmy
-    if "last_title" not in globals():
-        last_title = None
-        last_artist = None
-        last_album = None
-        last_cover_path = None
-
-    # Sprawdzamy, czy potok w ogóle istnieje
     if not os.path.exists(PIPE_PATH):
-        # Shairport Sync jeszcze nie utworzył metadanych
-        return (last_title, last_artist, last_album, last_cover_path)
+        # Potok nie istnieje -> brak danych
+        return None, None, None, None
 
-    # Otwieramy potok w trybie 'rb' (binarne), bo niektóre metadane (okładka) są binarne
-    # Ale tu w ramach uproszczenia wczytujemy TYLKO to co jest obecnie w buforze.
+    # Otwieramy w trybie non-blocking
     try:
-        with open(PIPE_PATH, "rb") as f:
-            # Odczytujemy *całą* zawartość
-            data = f.read()
+        fd = os.open(PIPE_PATH, os.O_RDONLY | os.O_NONBLOCK)
+    except OSError as e:
+        # Nie da się otworzyć – np. błąd dostępu
+        print("[shairport] Błąd otwierania potoku:", e)
+        return None, None, None, None
 
-        # Przetwarzamy (w prosty sposób) to, co przyszło
-        # Shairport Sync wysyła w formacie, gdzie występują:
-        #  8-bajtowe nagłówki (4 bajty type tagu, 4 bajty długość)
-        #  plus payload
-        #  Możesz w sieci znaleźć specyfikację "shairport-sync metadata".
-        idx = 0
-        while idx < len(data):
-            if idx + 8 > len(data):
-                break
-            # Odczytujemy 8 bajtów
-            tag_type = data[idx:idx+4]   # np. b'ssnc'
-            length_bytes = data[idx+4:idx+8]
-            length = int.from_bytes(length_bytes, byteorder='big')
-            idx += 8
+    # Za pomocą select sprawdzamy, czy coś jest do odczytania
+    # Timeout=0 – nie blokujemy się w ogóle, jeżeli nic nie ma
+    rlist, _, _ = select.select([fd], [], [], 0)
+    if fd not in rlist:
+        # Brak danych -> oddaj None
+        os.close(fd)
+        return None, None, None, None
 
-            # Odczytujemy payload
-            payload = data[idx: idx+length]
-            idx += length
+    # Odczytujemy np. 4096 bajtów
+    try:
+        raw_data = os.read(fd, 4096)
+    except OSError as e:
+        print("[shairport] Błąd read() z potoku:", e)
+        os.close(fd)
+        return None, None, None, None
 
-            # Parsujemy, jeśli type to 'ssnc' + 4 bajty kodu (w payload)
-            # W rzeczywistości jest to bardziej skomplikowane, ale tu uproszczony schemat
-            if tag_type == b'ssnc':
-                if length < 8:
-                    continue
-                code = payload[0:4]  # np. b'asar' (artist)
-                content = payload[4:]
-                
-                # Artist
-                if code == b'asar':
-                    last_artist = content.decode('utf-8', errors='ignore')
-                # Album
-                elif code == b'asal':
-                    last_album = content.decode('utf-8', errors='ignore')
-                # Title
-                elif code == b'minm':
-                    last_title = content.decode('utf-8', errors='ignore')
-                # Okładka (tu TYLKO do pliku)
-                elif code == b'PICT':
-                    # 'PICT' to cover art, często w formacie JPEG/PNG w payload
-                    # Zapiszmy do pliku tymczasowego
-                    cover_path = "/tmp/shairport-cover.jpg"
-                    try:
-                        with open(cover_path, "wb") as cf:
-                            cf.write(content)
-                        last_cover_path = cover_path
-                    except:
-                        pass
-                else:
-                    # Inne typy metadanych pomijamy
-                    pass
+    os.close(fd)
+    if not raw_data:
+        # Pusty odczyt = brak danych
+        return None, None, None, None
 
-    except Exception as e:
-        # Nie udało się otworzyć / parsować
-        # Zwracamy stan obecny
-        return (last_title, last_artist, last_album, last_cover_path)
+    # Tutaj musisz zaimplementować parsowanie surowych danych z potoku
+    # – w oryginale Shairport Sync wysyła tzw. „kodeki” (metadane w formie chunków).
+    # Dla przykładu:
+    text = raw_data.decode("utf-8", errors="replace")
 
-    return (last_title, last_artist, last_album, last_cover_path)
+    # Sztuczny parser do demonstracji:
+    #   Title=..., Artist=..., Album=..., CoverPath=...
+    # Oczywiście w praktyce format metadanych jest bardziej złożony.
+
+    # Przykład "Title=Song Title\nArtist=XYZ\nAlbum=Hello\nCoverPath=/tmp/...":
+    title, artist, album, cover_path = None, None, None, None
+
+    lines = text.splitlines()
+    for line in lines:
+        if line.startswith("Title="):
+            title = line[6:].strip()
+        elif line.startswith("Artist="):
+            artist = line[7:].strip()
+        elif line.startswith("Album="):
+            album = line[6:].strip()
+        elif line.startswith("CoverPath="):
+            cover_path = line[10:].strip()
+
+    return (title, artist, album, cover_path)
