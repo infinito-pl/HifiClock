@@ -359,6 +359,7 @@ def run_clock_screen(screen, test_mode=False):
 
         # Obsługa zdarzeń
         for event in pygame.event.get():
+            print(event)  # debug: wypisz każdy event w konsoli
             if event.type == pygame.QUIT:
                 running = False
 
