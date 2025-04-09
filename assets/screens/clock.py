@@ -348,7 +348,7 @@ def run_clock_screen(screen, test_mode=False):
         # Obsługa zdarzeń
         for event in pygame.event.get():
             # Loguj każdy event:
-            print("[DEBUG] event:", event)
+            #print("[DEBUG] event:", event)
 
             if event.type == pygame.QUIT:
                 print("[DEBUG] -> QUIT")
@@ -363,7 +363,7 @@ def run_clock_screen(screen, test_mode=False):
                 end_y = event.pos[1]
                 delta_y = end_y - start_y
                 print(f"[DEBUG]  MOUSE swipe delta_y = {delta_y}, start_y={start_y}, end_y={end_y}")
-                if start_y < 100 and delta_y > SWIPE_THRESHOLD:
+                if delta_y > SWIPE_THRESHOLD:
                     print("[DEBUG]  SWIPE MOUSE => switch to player")
                     pygame.event.clear()
                     return "player"
@@ -380,7 +380,7 @@ def run_clock_screen(screen, test_mode=False):
                 end_y = event.y * HEIGHT
                 delta_y = end_y - start_y
                 print(f"[DEBUG]  FINGER swipe delta_y={delta_y:.2f}, start_y={start_y:.2f}, end_y={end_y:.2f}")
-                if start_y < 100 and delta_y > SWIPE_THRESHOLD:
+                if delta_y > SWIPE_THRESHOLD:
                     print("[DEBUG]  SWIPE FINGER => switch to player")
                     pygame.event.clear()
                     return "player"
