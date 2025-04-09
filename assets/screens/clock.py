@@ -359,7 +359,7 @@ def run_clock_screen(screen, test_mode=False):
 
         # Obsługa zdarzeń
         for event in pygame.event.get():
-            print(event)  # debug: wypisz każdy event w konsoli
+            #print(event)  # debug: wypisz każdy event w konsoli
             if event.type == pygame.QUIT:
                 running = False
 
@@ -376,12 +376,17 @@ def run_clock_screen(screen, test_mode=False):
 
             # Tryb finger (np. RPi)
             elif event.type == pygame.FINGERDOWN:
+                print("[DEBUG] FINGERDOWN pos:", event.x, event.y)
                 start_y = event.y * HEIGHT
             elif event.type == pygame.FINGERUP and start_y is not None:
+                print("[DEBUG] FINGERUP pos:", event.x, event.y)
                 end_y = event.y * HEIGHT
-                if start_y < 100 and (end_y - start_y) > SWIPE_THRESHOLD:
-                    pygame.event.clear()
-                    return "player"
+                delta_y = start_y - end_y
+                print("[DEBUG] swipe delta y =", delta_y)
+            if delta_y > SWIPE_THRESHOLD:
+                print("[DEBUG] Swipe up -> go to player!")
+                pygame.event.clear()
+                return "player"
 
             # Test mode => scroll
             if test_mode:
