@@ -290,9 +290,15 @@ def run_clock_screen(screen, test_mode=False):
 
         icon_pos = (weather_rect.left - 70, weather_rect.centery - 24)
 
+        def tint_surface(src_surf, tint_color):
+            tinted = src_surf.copy()
+            tint = pygame.Surface(tinted.get_size(), flags=pygame.SRCALPHA)
+            tint.fill(tint_color)
+            tinted.blit(tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            return tinted
+
         # Ikona / klepsydra
         if not weather_data_loaded:
-            # Animacja klepsydry
             if not hourglass_rotating and ((now_time - last_hourglass_flip) > hourglass_flip_interval):
                 hourglass_rotating = True
                 hourglass_rotate_start = now_time
@@ -311,10 +317,17 @@ def run_clock_screen(screen, test_mode=False):
                 hourglass_angle = 180.0 if hourglass_state == 1 else 0.0
 
             rotated_icon = pygame.transform.rotozoom(hourglass_icon, hourglass_angle, 1.0)
+            if is_night:
+                rotated_icon = tint_surface(rotated_icon, NIGHT_WHITE)
             rotated_rect = rotated_icon.get_rect(center=(icon_pos[0] + 31, icon_pos[1] + 24))
             screen.blit(rotated_icon, rotated_rect)
         else:
-            screen.blit(weather_icon, icon_pos)
+            if is_night:
+                tinted_icon = tint_surface(weather_icon, NIGHT_WHITE)
+                screen.blit(tinted_icon, icon_pos)
+            else:
+                screen.blit(weather_icon, icon_pos)
+
 
         # Sekundowy ring
         current_ring_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
