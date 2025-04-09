@@ -11,6 +11,7 @@ TMP_COVER = "/tmp/cover.jpg"  # lub .png – w trakcie parsowania sprawdzisz mag
 _last = {"title": None, "artist": None, "album": None, "cover_path": None}
 
 def get_current_track_info_shairport():
+    DEBUG = True
     if not os.path.exists(PIPE_PATH):
         return (_last["title"], _last["artist"], _last["album"], _last["cover_path"])
 
@@ -60,5 +61,10 @@ def get_current_track_info_shairport():
                 _last["cover_path"] = TMP_COVER
             except:
                 pass
+
+        if DEBUG and code in ("minm", "asar", "asal"):
+            print(f"[DEBUG] {code}: {text}")
+        if DEBUG and code in ("PICT", "pic ", "covr") and _last["cover_path"]:
+            print(f"[DEBUG] cover saved to: {_last['cover_path']}")
 
     return (_last["title"], _last["artist"], _last["album"], _last["cover_path"])

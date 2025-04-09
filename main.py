@@ -40,6 +40,11 @@ def main():
             else:
                 break
 
+   # Wyczyść ekran przed wyjściem
+    screen.fill((0, 0, 0))
+    pygame.display.flip()
+    time.sleep(0.2)
+
     pygame.quit()
     sys.exit()
 
