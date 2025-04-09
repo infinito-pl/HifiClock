@@ -187,6 +187,13 @@ def run_clock_screen(screen, test_mode=False):
     # Konfiguracja
     API_KEY = "3ca806c1d8f158812419bec229533068"
     city = get_city_from_ip()
+    start_time = time.time()
+    # [POPRAWKA] Retry pobrania city, jeśli brak
+    def retry_city():
+        nonlocal city
+        if not city:
+            print("[DEBUG] Retry city...")
+            city = get_city_from_ip()
     weather_text = "Loading weather..."
     weather_data_loaded = False
 
@@ -207,6 +214,21 @@ def run_clock_screen(screen, test_mode=False):
     running = True
 
     while running:
+        retry_city()  # [POPRAWKA] sprawdzamy city w pętli
+
+        # [POPRAWKA] Retry pogody jeśli mamy city
+        if city and (time.time() - last_weather_try > 5) and (
+            not weather_data_loaded or (time.time() - last_weather_check > 900)):
+            wtxt, wicon = get_weather_data(city, API_KEY)
+            if wtxt and wicon:
+                print("[DEBUG] Pogoda załadowana")
+                weather_text = wtxt
+                weather_icon = wicon
+                weather_data_loaded = True
+                last_weather_check = time.time()
+            else:
+                print("[DEBUG] Brak pogody – spróbuję później")
+            last_weather_try = time.time()
         now_dt = datetime.now()
         now_time = time.time()
         current_time_str = now_dt.strftime("%H:%M")
