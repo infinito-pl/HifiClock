@@ -357,23 +357,38 @@ def run_clock_screen(screen, test_mode=False):
         else:
             screen.blit(current_ring_surface, (0, 0))
 
-        # Zdarzenia
+        # Obsługa zdarzeń
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
-            if test_mode:
-                # scroll w dół => "player"
-                if event.type == pygame.MOUSEWHEEL and event.y < 0:
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                start_y = event.pos[1]
+            elif event.type == pygame.MOUSEBUTTONUP and start_y is not None:
+                end_y = event.pos[1]
+                delta_y = end_y - start_y
+                if start_y < 100 and delta_y > SWIPE_THRESHOLD:
+                    # 1) czyścimy eventy
+                    pygame.event.clear()
+                    # 2) wracamy do main => "player"
                     return "player"
-            else:
-                # swipe z góry na dół
-                if event.type == pygame.FINGERDOWN:
-                    start_y = event.y
-                elif event.type == pygame.FINGERUP and start_y is not None:
-                    end_y = event.y
-                    if start_y < 0.1 and (end_y - start_y) > SWIPE_THRESHOLD:
-                        return "player"
+
+            # Tryb finger (np. RPi)
+            elif event.type == pygame.FINGERDOWN:
+                start_y = event.y * HEIGHT
+            elif event.type == pygame.FINGERUP and start_y is not None:
+                end_y = event.y * HEIGHT
+                if start_y < 100 and (end_y - start_y) > SWIPE_THRESHOLD:
+                    pygame.event.clear()
+                    return "player"
+
+            # Test mode => scroll
+            if test_mode:
+                if event.type == pygame.MOUSEWHEEL and event.y < 0:
+                    # scroll w dół => player
+                    pygame.event.clear()
+                    return "player"
+
 
         # FPS – 30 w dzień, 10 w nocy
         clock.tick(10 if is_night else 30)

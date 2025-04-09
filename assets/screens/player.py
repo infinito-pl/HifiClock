@@ -118,6 +118,7 @@ def run_player_screen(screen, test_mode=False):
             if test_mode:
                 # scroll w górę => "clock"
                 if event.type == pygame.MOUSEWHEEL and event.y > 0:
+                    pygame.event.clear()
                     return "clock"
             else:
                 # obsługa FINGER
@@ -125,9 +126,10 @@ def run_player_screen(screen, test_mode=False):
                     start_y = event.y
                 elif event.type == pygame.FINGERUP and start_y is not None:
                     if (start_y - event.y) > SWIPE_THRESHOLD:
+                        pygame.event.clear()
                         return "clock"
 
-            if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.type == pygame.MOUSEBUTTONUP:
                 # Obsługa klikania
                 mx, my = event.pos
                 if rect_prev.collidepoint(mx,my):
