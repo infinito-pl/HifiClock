@@ -92,6 +92,3 @@ def get_current_track_info_shairport():
         _last["cover_path"] = cover_path
 
     return (_last["title"], _last["artist"], _last["album"], _last["cover_path"])
-
-title, artist, album, cover_path = get_current_track_info_shairport()
-print("[DEBUG] track info:", title, artist, album, cover_path)
