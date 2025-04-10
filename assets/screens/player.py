@@ -1,19 +1,6 @@
-import os
-import sys
-import math
-import time
+# player.py
 import pygame
-import cairosvg
-import io
-from services.shairport_listener import read_shairport_metadata
-
-try:
-    from services.metadata_shairport import get_current_track_info_shairport
-except ImportError:
-    def get_current_track_info_shairport():
-        return (None, None, None, None)
-
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+from services.shairport_listener import current_metadata
 
 def truncate_text(text, max_length=30):
     return text if len(text) <= max_length else text[:max_length - 3] + "..."
@@ -29,13 +16,13 @@ def run_player_screen(screen, test_mode=False):
     clock = pygame.time.Clock()
     running = True
 
-    WHITE      = (255, 255, 255)
-    BLACK      = (0,   0,   0)
-    SEMI_BLACK = (0,   0,   0, 128)
+    WHITE = (255, 255, 255)
+    BLACK = (0, 0, 0)
+    SEMI_BLACK = (0, 0, 0, 128)
     BACKGROUND_COLOR = (30, 30, 30)
 
     font_regular_path = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Regular.ttf")
-    font_bold_path    = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
+    font_bold_path = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
 
     if not os.path.isfile(font_regular_path):
         font_regular_path = pygame.font.get_default_font()
@@ -43,8 +30,8 @@ def run_player_screen(screen, test_mode=False):
         font_bold_path = pygame.font.get_default_font()
 
     font_artist = pygame.font.Font(font_bold_path, 50)
-    font_album  = pygame.font.Font(font_regular_path, 30)
-    font_title  = pygame.font.Font(font_regular_path, 50)
+    font_album = pygame.font.Font(font_regular_path, 30)
+    font_title = pygame.font.Font(font_regular_path, 50)
 
     while running:
         for event in pygame.event.get():
@@ -62,12 +49,12 @@ def run_player_screen(screen, test_mode=False):
 
         screen.fill(BACKGROUND_COLOR)
 
-        title, artist, album, cover_path = get_current_track_info_shairport()
-        
-        if not any([title, artist, album]):
-            title = " "
-            artist = " "
-            album = "Loading..."
+        # Pobieranie metadanych z globalnej zmiennej
+        title = current_metadata['title'] or "Loading..."
+        artist = current_metadata['artist'] or " "
+        album = current_metadata['album'] or "Loading..."
+        cover_path = current_metadata['cover_path']
+
         if not cover_path or not os.path.isfile(cover_path):
             cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
 

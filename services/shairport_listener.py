@@ -1,5 +1,26 @@
+# shairport_listener.py
+import subprocess
+import os
+import time
+
+# Globalna zmienna do przechowywania metadanych
+current_metadata = {
+    'title': None,
+    'artist': None,
+    'album': None,
+    'cover_path': None
+}
+
+def update_metadata(title, artist, album, cover_path):
+    """Aktualizuje metadane w globalnej zmiennej"""
+    current_metadata['title'] = title
+    current_metadata['artist'] = artist
+    current_metadata['album'] = album
+    current_metadata['cover_path'] = cover_path
+
 def read_shairport_metadata():
-    global last_title, last_artist, last_album, last_cover, active_state, should_switch_to_player, should_switch_to_clock
+    """Funkcja nasłuchująca zmiany metadanych"""
+    global current_metadata
 
     try:
         proc = subprocess.Popen(
@@ -11,7 +32,6 @@ def read_shairport_metadata():
             bufsize=1
         )
 
-        title = artist = album = cover_path = None
         start_time = time.time()
 
         while True:
@@ -28,33 +48,27 @@ def read_shairport_metadata():
             elif "[DEBUG] Exit Active State" in line:
                 active_state = False
                 print("[DEBUG] Exit Active State. Stopping metadata reading.")
-                should_switch_to_clock = True  # Połączenie zostało zakończone, wróć do zegara
-                return last_title, last_artist, last_album, last_cover, False
+                break
 
             if active_state:
+                title = artist = album = cover_path = None
+
                 if line.startswith("Title:"):
-                    title = clean_value(line.split(': "', 1)[1].strip('".'))
+                    title = line.split(': "', 1)[1].strip('".')
                 elif line.startswith("Artist:"):
-                    artist = clean_value(line.split(': "', 1)[1].strip('".'))
+                    artist = line.split(': "', 1)[1].strip('".')
                 elif line.startswith("Album Name:"):
-                    album = clean_value(line.split(': "', 1)[1].strip('".'))
+                    album = line.split(': "', 1)[1].strip('".')
                 elif "Picture received" in line and "length" in line:
                     cover_path = "/tmp/shairport-sync/.cache/coverart/last_cover.jpg"
 
-                # Jeśli metadane się zmieniły, zaktualizuj
-                if title != last_title or artist != last_artist or album != last_album or cover_path != last_cover:
-                    last_title = title
-                    last_artist = artist
-                    last_album = album
-                    last_cover = cover_path
-                    should_switch_to_player = True  # Przełączamy ekran na player
+                if title and artist and album:
+                    # Zaktualizuj metadane tylko wtedy, gdy wszystkie dane są dostępne
+                    update_metadata(title, artist, album, cover_path)
 
-            # Sprawdzamy co 0.1 sekundy
+            # Czekaj na nowe dane, odczytuj metadane co 0.1 sekundy
             if time.time() - start_time > 0.1:
                 start_time = time.time()
 
-        return last_title, last_artist, last_album, last_cover, False
-
     except Exception as e:
         print(f"[DEBUG] Failed to run reader: {e}")
-        return last_title, last_artist, last_album, last_cover, False
