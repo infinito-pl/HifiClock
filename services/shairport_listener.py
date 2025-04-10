@@ -112,6 +112,7 @@ def read_shairport_metadata():
 
                 if "Enter Active State" in line:
                     active_state = True
+                    logger.debug(f"Active state (listener): {active_state}")
                     should_switch_to_player = True
                     should_switch_to_clock = False
                     logger.debug("Shairport entered active state")
@@ -119,6 +120,7 @@ def read_shairport_metadata():
 
                 elif "Exit Active State" in line:
                     active_state = False
+                    logger.debug(f"Active state (listener): {active_state}")
                     should_switch_to_player = False
                     should_switch_to_clock = True
                     logger.debug("Shairport exited active state")
@@ -126,11 +128,13 @@ def read_shairport_metadata():
 
                 elif "Play -- first frame received" in line:
                     active_state = True
+                    logger.debug(f"Active state (Play): {active_state}")
                     update_play_pause_icon()  # Zaktualizuj ikonę play/pause
                     logger.debug("Play: First frame received, music is playing.")
 
                 elif "Pause" in line:
                     active_state = False
+                    logger.debug(f"Active state (Pause): {active_state}")
                     update_play_pause_icon()  # Zaktualizuj ikonę play/pause
                     logger.debug("Pause: Music is paused.")
 

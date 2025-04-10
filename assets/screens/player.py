@@ -121,7 +121,7 @@ def run_player_screen(screen, test_mode=False):
             screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
 
         # Renderowanie ikony play/pause
-        logger.debug(f"Active state: {active_state}")
+        logger.debug(f"Active state (icon): {active_state}")
         if active_state:
             screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
         else:
