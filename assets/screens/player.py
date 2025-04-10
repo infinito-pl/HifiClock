@@ -97,6 +97,12 @@ def run_player_screen(screen, test_mode=False):
         album = truncate_text(album)
         title = truncate_text(title)
 
+        # Sprawdzenie stanu odtwarzania (czy jest utwór odtwarzany)
+        if active_state:  # Jeśli Shairport jest w aktywnym stanie (odtwarzanie)
+            is_playing = True
+        else:  # Jeśli Shairport nie jest w aktywnym stanie (pauza)
+            is_playing = False
+
         if artist:
             artist_surface = font_artist.render(artist, True, WHITE)
             screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 175))

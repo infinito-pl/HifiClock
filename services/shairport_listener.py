@@ -19,6 +19,17 @@ should_switch_to_clock = False
 PIPE_PATH = "/tmp/shairport-sync-metadata"
 TMP_COVER = "/tmp/cover.jpg"  # or .png, magic number check is done during parsing
 
+# Funkcja do zarządzania stanem ikony play/pause
+def update_play_pause_icon():
+    if active_state:
+        # Jeśli muzyka jest odtwarzana, ustaw ikonę na pauzę
+        logger.debug("Music is playing, setting icon to 'pause'.")
+        # Kod do zmiany ikony na pauzę (np. aktualizacja UI)
+    else:
+        # Jeśli muzyka nie jest odtwarzana, ustaw ikonę na play
+        logger.debug("Music is paused, setting icon to 'play'.")
+        # Kod do zmiany ikony na play (np. aktualizacja UI)
+
 # Function to read and fetch metadata from shairport-sync-metadata-reader
 def get_current_track_info_shairport():
     global last_title, last_artist, last_album, last_cover
@@ -104,12 +115,24 @@ def read_shairport_metadata():
                     should_switch_to_player = True
                     should_switch_to_clock = False
                     logger.debug("Shairport entered active state")
+                   
 
                 elif "Exit Active State" in line:
                     active_state = False
                     should_switch_to_player = False
                     should_switch_to_clock = True
                     logger.debug("Shairport exited active state")
+                
+
+                elif "Play -- first frame received" in line:
+                    active_state = True
+                    update_play_pause_icon()  # Zaktualizuj ikonę play/pause
+                    logger.debug("Play: First frame received, music is playing.")
+
+                elif "Pause" in line:
+                    active_state = False
+                    update_play_pause_icon()  # Zaktualizuj ikonę play/pause
+                    logger.debug("Pause: Music is paused.")
 
                 # Regularly fetch metadata when active
                 if active_state:
