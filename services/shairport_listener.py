@@ -27,7 +27,7 @@ def update_shairport_metadata():
             text=True,
         ) as proc:
             try:
-                output, _ = proc.communicate(timeout=0.05)
+                output, _ = proc.communicate(timeout=0.5)
             except subprocess.TimeoutExpired:
                 proc.kill()
                 output, _ = proc.communicate()
@@ -35,6 +35,7 @@ def update_shairport_metadata():
         if not output:
             # Do not clear metadata if no output received
             print("[DEBUG] No metadata output; returning last known values.")
+            print(f"[DEBUG] Brak danych z readera po 0.5s.")
             return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
 
         current = _last.copy()
@@ -59,6 +60,8 @@ def update_shairport_metadata():
         else:
             # Reprint current known values for debug clarity
             print(f"[DEBUG] Metadata still current: '{_last['title']}' — {_last['artist']} / {_last['album']} / {_last['cover_path']}")
+
+        print(f"[DEBUG] RAW output:\n{output}")
 
         return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], updated)
 
