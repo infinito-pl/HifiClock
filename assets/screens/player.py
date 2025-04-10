@@ -2,6 +2,7 @@
 import pygame
 import os
 from services.shairport_listener import current_metadata
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 def truncate_text(text, max_length=30):
     return text if len(text) <= max_length else text[:max_length - 3] + "..."
