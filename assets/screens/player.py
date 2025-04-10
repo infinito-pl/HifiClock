@@ -5,7 +5,7 @@ import time
 import pygame
 import cairosvg
 import io
-from services.shairport_listener import read_metadata
+from services.shairport_listener import read_shairport_metadata
 
 try:
     from services.metadata_shairport import get_current_track_info_shairport
