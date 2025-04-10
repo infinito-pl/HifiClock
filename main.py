@@ -1,11 +1,17 @@
 import os
 import sys
 import pygame
+import threading
 from assets.screens.clock import run_clock_screen
 from assets.screens.player import run_player_screen
 
 should_switch_to_player = False  # Flaga do przełączania na ekran player
 should_switch_to_clock = False   # Flaga do przełączania na ekran zegara
+
+def load_metadata():
+    """Funkcja, która będzie odpowiedzialna za pobieranie metadanych w tle."""
+    title, artist, album, cover_path = get_current_track_info_shairport()
+    return title, artist, album, cover_path
 
 def get_current_track_info_shairport():
     # Mock function to emulate getting track info from Shairport
@@ -30,7 +36,8 @@ def main():
     last_playing_status = None  # Zmienna do monitorowania stanu odtwarzania
 
     while True:
-        title, artist, album, cover_path = get_current_track_info_shairport()
+        # Uruchamiamy pobieranie metadanych w tle
+        title, artist, album, cover_path = load_metadata()
 
         if should_switch_to_player:
             print("[DEBUG] Changing to player screen...")
