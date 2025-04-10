@@ -21,15 +21,19 @@ def update_shairport_metadata():
     Returns: (title, artist, album, cover_path, updated: bool)
     """
     try:
-        proc = subprocess.run(
+        with subprocess.Popen(
             ["/usr/local/bin/shairport-sync-metadata-reader"],
             stdin=open(PIPE_PATH),
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            timeout=1,
             text=True,
-        )
-        output = proc.stdout
+        ) as proc:
+            try:
+                output, _ = proc.communicate(timeout=0.3)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                output, _ = proc.communicate()
+
         print("[DEBUG] raw output:")
         print(output)
         updated = False
