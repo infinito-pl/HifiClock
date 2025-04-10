@@ -22,6 +22,7 @@ _listener_started = False
 
 last_metadata_update = 0
 metadata_refresh_interval = 2  # seconds
+empty_attempts = 0
 
 def start_metadata_listener():
     global _metadata_thread, _listener_started
@@ -46,9 +47,7 @@ def start_metadata_listener():
 
 def update_shairport_metadata():
     start_metadata_listener()
-    global _last, last_metadata_update
-
-    # Usunięto ograniczenie czasowe odświeżania
+    global _last, last_metadata_update, empty_attempts
 
     lines = []
     # Ograniczenie kolejki, by uniknąć przestarzałych metadanych
@@ -88,8 +87,8 @@ def update_shairport_metadata():
 
     updated = current != _last
 
-    if not any(current.values()) and any(_last.values()):
-        print("[DEBUG] Zignorowano pusty zestaw metadanych.")
+    if not any(current.values()):
+        print("[DEBUG] Pusty zestaw metadanych — zachowuję poprzednie.")
         return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
 
     if updated and current["cover_path"] is None and _last["cover_path"] and all(
@@ -100,4 +99,10 @@ def update_shairport_metadata():
     if updated:
         _last.update(current)
         print(f"[DEBUG] Nowe metadane: '{_last['title']}' — {_last['artist']} / {_last['album']} / {_last['cover_path']}")
+    else:
+        empty_attempts += 1
+        if empty_attempts < 3:
+            print(f"[DEBUG] {empty_attempts}x pusty zestaw — zachowuję poprzednie.")
+            return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
+
     return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], updated)
