@@ -33,8 +33,8 @@ def start_metadata_listener():
 
     def listener():
         with subprocess.Popen(
-            ["/usr/local/bin/shairport-sync-metadata-reader"],
-            stdin=open(PIPE_PATH),
+            f"/usr/local/bin/shairport-sync-metadata-reader < {PIPE_PATH}",
+            shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
