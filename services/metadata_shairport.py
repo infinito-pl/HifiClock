@@ -1,9 +1,13 @@
 # metadata_shairport.py
-
+#
+# 1) fetches data from shairport-sync-metadata-reader
+# 2) returns title, artist, album and cover path
+#
 import os
 import base64
 import xml.etree.ElementTree as ET
 import select
+import subprocess
 
 PIPE_PATH = "/tmp/shairport-sync-metadata"
 TMP_COVER = "/tmp/cover.jpg"  # lub .png – w trakcie parsowania sprawdzisz magic number
@@ -12,64 +16,35 @@ _last = {"title": None, "artist": None, "album": None, "cover_path": None}
 
 def get_current_track_info_shairport():
     DEBUG = True
-    if not os.path.exists(PIPE_PATH):
-        return (_last["title"], _last["artist"], _last["album"], _last["cover_path"])
+    output_path = "/tmp/shairport-sync-metadata"
+    reader_path = "/usr/local/bin/shairport-sync-metadata-reader"
 
     try:
-        fd = os.open(PIPE_PATH, os.O_RDONLY | os.O_NONBLOCK)
-        rlist, _, _ = select.select([fd], [], [], 0)
-        if fd not in rlist:
-            os.close(fd)
-            return (_last["title"], _last["artist"], _last["album"], _last["cover_path"])
-        with os.fdopen(fd, "r") as pipe:
-            raw = pipe.read()
-            if DEBUG:
-                if raw.strip():
-                    print("[DEBUG] raw metadata XML:\n", raw)
-            else:
-                print("[DEBUG] pipe is empty – no metadata available")
-    except Exception:
-        return (_last["title"], _last["artist"], _last["album"], _last["cover_path"])
+        proc = subprocess.run(
+            [reader_path],
+            stdin=open(output_path, "rb"),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=1.0  # krótkie uruchomienie
+        )
+        lines = proc.stdout.splitlines()
+    except Exception as e:
+        if DEBUG:
+            print(f"[DEBUG] failed to run reader: {e}")
+        return (None, None, None, None)
 
-    try:
-        root = ET.fromstring(f"<root>{raw}</root>")
-    except ET.ParseError:
-        return (_last["title"], _last["artist"], _last["album"], _last["cover_path"])
+    title = artist = album = cover_path = None
+    for line in lines:
+        if DEBUG:
+            print("[DEBUG]", line)
+        if line.startswith("Title:"):
+            title = line.split(":", 1)[1].strip().strip('"')
+        elif line.startswith("Artist:"):
+            artist = line.split(":", 1)[1].strip().strip('"')
+        elif line.startswith("Album Name:"):
+            album = line.split(":", 1)[1].strip().strip('"')
+        elif "Picture received" in line and "length" in line:
+            cover_path = "/tmp/shairport-sync/.cache/coverart/last_cover.jpg"
 
-    for item in root.findall("item"):
-        code_elem = item.find("code")
-        data_elem = item.find("data")
-        if code_elem is None or data_elem is None:
-            continue
-
-        try:
-            code = bytes.fromhex(code_elem.text).decode("ascii")
-        except Exception:
-            continue
-
-        try:
-            payload = base64.b64decode(data_elem.text.strip())
-        except Exception:
-            continue
-
-        text = payload.decode("utf-8", errors="replace")
-        if code == "minm":
-            _last["title"] = text
-        elif code == "asar":
-            _last["artist"] = text
-        elif code == "asal":
-            _last["album"] = text
-        elif code in ("PICT", "pic ", "covr"):
-            try:
-                with open(TMP_COVER, "wb") as f:
-                    f.write(payload)
-                _last["cover_path"] = TMP_COVER
-            except:
-                pass
-
-        if DEBUG and code in ("minm", "asar", "asal"):
-            print(f"[DEBUG] {code}: {text}")
-        if DEBUG and code in ("PICT", "pic ", "covr") and _last["cover_path"]:
-            print(f"[DEBUG] cover saved to: {_last['cover_path']}")
-
-    return (_last["title"], _last["artist"], _last["album"], _last["cover_path"])
+    return (title, artist, album, cover_path)
