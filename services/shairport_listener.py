@@ -36,6 +36,7 @@ def start_metadata_listener():
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
+            bufsize=1
         ) as proc:
             for line in proc.stdout:
                 _metadata_queue.put(line.strip())
@@ -47,12 +48,16 @@ def update_shairport_metadata():
     start_metadata_listener()
     global _last, last_metadata_update
 
-    now = time.time()
-    if now - last_metadata_update < metadata_refresh_interval:
-        return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
-    last_metadata_update = now
+    # Usunięto ograniczenie czasowe odświeżania
 
     lines = []
+    # Ograniczenie kolejki, by uniknąć przestarzałych metadanych
+    while _metadata_queue.qsize() > 100:
+        try:
+            _metadata_queue.get_nowait()
+        except Empty:
+            break
+
     try:
         while True:
             line = _metadata_queue.get_nowait()

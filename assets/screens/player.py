@@ -131,7 +131,7 @@ def run_player_screen(screen, test_mode=False):
                 no_metadata_count = 0
         else:
             no_metadata_count += 1
-            if no_metadata_count >= 5:
+            if no_metadata_count >= 30:
                 current_title = "Unknown Track"
                 current_artist = "Unknown Artist"
                 current_album = "Unknown Album"
