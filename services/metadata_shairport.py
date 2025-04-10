@@ -23,6 +23,11 @@ def get_current_track_info_shairport():
             return (_last["title"], _last["artist"], _last["album"], _last["cover_path"])
         with os.fdopen(fd, "r") as pipe:
             raw = pipe.read()
+            if DEBUG:
+                if raw.strip():
+                    print("[DEBUG] raw metadata XML:\n", raw)
+            else:
+                print("[DEBUG] pipe is empty – no metadata available")
     except Exception:
         return (_last["title"], _last["artist"], _last["album"], _last["cover_path"])
 
