@@ -1,5 +1,3 @@
-# shairport_listener.py
-
 import subprocess
 import re
 import tempfile
@@ -34,8 +32,6 @@ def update_shairport_metadata():
                 proc.kill()
                 output, _ = proc.communicate()
 
-        updated = False
-
         if not output:
             return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
 
@@ -44,29 +40,17 @@ def update_shairport_metadata():
         for line in output.splitlines():
             line = line.strip()
             if line.startswith("Album Name:"):
-                value = line.replace("Album Name:", "").strip('" .')
-                if value != current["album"]:
-                    current["album"] = value
-                    updated = True
+                current["album"] = line.replace("Album Name:", "").strip('" .')
             elif line.startswith("Artist:"):
-                value = line.replace("Artist:", "").strip('" .')
-                if value != current["artist"]:
-                    current["artist"] = value
-                    updated = True
+                current["artist"] = line.replace("Artist:", "").strip('" .')
             elif line.startswith("Title:"):
-                value = line.replace("Title:", "").strip('" .')
-                if value != current["title"]:
-                    current["title"] = value
-                    updated = True
+                current["title"] = line.replace("Title:", "").strip('" .')
             elif line.startswith("Picture received"):
                 match = re.search(r"length (\d+) bytes", line)
                 if match and int(match.group(1)) > 0:
-                    with open(TMP_COVER, "wb") as f:
-                        f.write(b"")  # Placeholder; actual writing must be handled via chunk parsing if needed
-                    if current["cover_path"] != TMP_COVER:
-                        current["cover_path"] = TMP_COVER
-                        updated = True
+                    current["cover_path"] = TMP_COVER
 
+        updated = current != _last
         if updated:
             _last.update(current)
             print(f"[DEBUG] Nowe metadane: '{_last['title']}' — {_last['artist']} / {_last['album']} / {_last['cover_path']}")
