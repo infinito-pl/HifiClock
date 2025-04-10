@@ -37,19 +37,18 @@ def update_shairport_metadata():
         updated = False
 
         if not output:
-            print("[DEBUG] No output received from reader.")
             return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
 
         for line in output.splitlines():
             line = line.strip()
             if line.startswith("Album Name:"):
-                _last["album"] = line.replace("Album Name:", "").strip().strip('"').strip(". ")
+                _last["album"] = line.replace("Album Name:", "").strip('" .')
                 updated = True
             elif line.startswith("Artist:"):
-                _last["artist"] = line.replace("Artist:", "").strip().strip('"').strip(". ")
+                _last["artist"] = line.replace("Artist:", "").strip('" .')
                 updated = True
             elif line.startswith("Title:"):
-                _last["title"] = line.replace("Title:", "").strip().strip('"').strip(". ")
+                _last["title"] = line.replace("Title:", "").strip('" .')
                 updated = True
             elif line.startswith("Picture received"):
                 match = re.search(r"length (\d+) bytes", line)
@@ -60,7 +59,7 @@ def update_shairport_metadata():
                     updated = True
 
         if updated:
-            print(f"[DEBUG] Parsed Metadata — Title: {_last['title']}, Artist: {_last['artist']}, Album: {_last['album']}, Cover: {_last['cover_path']}")
+            print(f"[DEBUG] Nowe metadane: '{_last['title']}' — {_last['artist']} / {_last['album']} / {_last['cover_path']}")
         else:
             print("[DEBUG] Metadata not updated.")
 
