@@ -1,187 +1,71 @@
-# player.py
+# shairport_listener.py
 
-import os
-import sys
-import math
+import subprocess
 import time
-import pygame
-import cairosvg
-import io
-from services.shairport_listener import read_shairport_metadata
+import tempfile
+import os
 
-# Ładowanie modułu do metadanych Shairport. 
-# Jeśli nie istnieje, po prostu mamy fallback (None, None, None, None).
-try:
-    from services.metadata_shairport import get_current_track_info_shairport
-except ImportError:
-    def get_current_track_info_shairport():
-        return (None, None, None, None)
+COVER_ART_PATH = "/tmp/shairport-sync/.cache/coverart/"
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+last_title = None
+last_artist = None
+last_album = None
+last_cover = None
 
-def run_player_screen(screen, test_mode=False):
-    WIDTH, HEIGHT = 800, 800
-    CENTER_X = WIDTH // 2
-    CENTER_Y = HEIGHT // 2
+def read_shairport_metadata():
+    global last_title, last_artist, last_album, last_cover
 
-    clock = pygame.time.Clock()
-    running = True
-
-    WHITE      = (255, 255, 255)
-    BLACK      = (0,   0,   0)
-    SEMI_BLACK = (0,   0,   0, 128)
-
-    font_regular_path = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Regular.ttf")
-    font_bold_path    = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
-
-    font_artist = pygame.font.Font(font_bold_path,  50)
-    font_album  = pygame.font.Font(font_regular_path, 36)
-    font_title  = pygame.font.Font(font_regular_path, 50)
-
-    def load_svg_button(filename, width=158, height=158):
-        full_path = os.path.join(BASE_DIR, "assets", "icons", filename)
-        if not os.path.exists(full_path):
-            surf = pygame.Surface((width, height), pygame.SRCALPHA)
-            pygame.draw.rect(surf, (255,0,0), (0,0,width,height), 5)
-            return surf
-        try:
-            with open(full_path, "rb") as f:
-                svg_data = f.read()
-            png_data = cairosvg.svg2png(
-                bytestring=svg_data,
-                output_width=width,
-                output_height=height
-            )
-            button_surf = pygame.image.load(io.BytesIO(png_data)).convert_alpha()
-            return button_surf
-        except Exception as e:
-            print("[player] Nie udało się załadować ikony:", filename, e)
-            surf = pygame.Surface((width, height), pygame.SRCALPHA)
-            pygame.draw.rect(surf, (255,0,0), (0,0,width,height), 5)
-            return surf
-
-    btn_prev_icon  = load_svg_button("btn_prev.svg")
-    btn_next_icon  = load_svg_button("btn_next.svg")
-    btn_play_icon  = load_svg_button("btn_play.svg")
-    btn_pause_icon = load_svg_button("btn_pause.svg")
-
-    btn_size = 158
-    gap      = 40
-    total_w  = btn_size*3 + gap*2
-    start_x  = (WIDTH - total_w) // 2
-    base_y   = (HEIGHT - btn_size) // 2
-
-    rect_prev = pygame.Rect(start_x,               base_y, btn_size, btn_size)
-    rect_play = pygame.Rect(start_x+btn_size+gap,  base_y, btn_size, btn_size)
-    rect_next = pygame.Rect(start_x+2*(btn_size+gap), base_y, btn_size, btn_size)
-
-    default_cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
-
-    is_playing = True
-    def current_play_button():
-        return btn_pause_icon if is_playing else btn_play_icon
-
-    RING_WIDTH  = 16
-    RING_RADIUS = 380
-
-    start_y = None
-
-    current_title = "Unknown Track"
-    current_artist = "Unknown Artist"
-    current_album = "Unknown Album"
-    current_cover = default_cover_path
-    no_metadata_count = 0
-
-    while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            if test_mode:
-                if event.type == pygame.MOUSEWHEEL and event.y > 0:
-                    pygame.event.clear()
-                    return "clock"
-            else:
-                if event.type == pygame.FINGERDOWN:
-                    start_y = event.y
-                elif event.type == pygame.FINGERUP and start_y is not None:
-                    end_y = event.y
-                    delta_y = start_y - end_y
-                    if delta_y > 0.25:
-                        pygame.event.clear()
-                        return "clock"
-                    start_y = None
-            if event.type == pygame.MOUSEBUTTONUP:
-                mx, my = event.pos
-                if rect_prev.collidepoint(mx, my):
-                    print("[player] Prev pressed!")
-                elif rect_play.collidepoint(mx, my):
-                    print("[player] Play/Pause pressed!")
-                    is_playing = not is_playing
-                elif rect_next.collidepoint(mx, my):
-                    print("[player] Next pressed!")
-
-        # Metadane Shairport
-        title, artist, album, cover_path, updated = read_shairport_metadata()
-        if updated:
-            current_title = title or "Unknown Track"
-            current_artist = artist or "Unknown Artist"
-            current_album = album or "Unknown Album"
-            if cover_path and os.path.exists(cover_path):
-                current_cover = cover_path
-                no_metadata_count = 0
-        else:
-            no_metadata_count += 1
-            if no_metadata_count >= 30:
-                current_title = "Unknown Track"
-                current_artist = "Unknown Artist"
-                current_album = "Unknown Album"
-                current_cover = default_cover_path
-
-        screen.fill(BLACK)
-        try:
-            cover_img = pygame.image.load(current_cover).convert()
-            cover_img = pygame.transform.smoothscale(cover_img, (WIDTH, HEIGHT))
-            cover_surf = cover_img.copy()
-            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            overlay.fill(SEMI_BLACK)
-            cover_surf.blit(overlay, (0,0))
-            screen.blit(cover_surf, (0,0))
-        except:
-            pass
-
-        ring_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        color_ring = (255, 255, 255, 128)
-        start_angle = -90
-        end_angle   = start_angle + 360 * 0.3
-        rect_arc = (
-            CENTER_X - RING_RADIUS,
-            CENTER_Y - RING_RADIUS,
-            RING_RADIUS * 2,
-            RING_RADIUS * 2
+    try:
+        proc = subprocess.Popen(
+            ["shairport-sync-metadata-reader", "--raw", "/tmp/shairport-sync-metadata"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            universal_newlines=True
         )
-        pygame.draw.arc(
-            ring_surf,
-            color_ring,
-            rect_arc,
-            math.radians(start_angle),
-            math.radians(end_angle),
-            RING_WIDTH
-        )
-        screen.blit(ring_surf, (0,0))
 
-        performer_surf = font_artist.render(current_artist, True, WHITE)
-        album_surf     = font_album.render(current_album.upper(), True, WHITE)
-        title_surf     = font_title.render(current_title, True, WHITE)
+        title = None
+        artist = None
+        album = None
+        cover_path = None
 
-        screen.blit(performer_surf, performer_surf.get_rect(center=(CENTER_X, CENTER_Y-175)))
-        screen.blit(album_surf,     album_surf.get_rect(center=(CENTER_X, CENTER_Y-120)))
-        screen.blit(title_surf,     title_surf.get_rect(center=(CENTER_X, CENTER_Y+120)))
+        start_time = time.time()
+        timeout = 2
 
-        screen.blit(btn_prev_icon,         rect_prev)
-        screen.blit(current_play_button(), rect_play)
-        screen.blit(btn_next_icon,         rect_next)
+        while True:
+            if time.time() - start_time > timeout:
+                proc.kill()
+                break
 
-        pygame.display.flip()
-        clock.tick(30)
+            line = proc.stdout.readline()
+            if not line:
+                continue
 
-    return None
+            line = line.strip()
+
+            if line.startswith("Title:"):
+                title = line.replace("Title:", "").strip().strip("\"")
+            elif line.startswith("Artist:"):
+                artist = line.replace("Artist:", "").strip().strip("\"")
+            elif line.startswith("Album Name:"):
+                album = line.replace("Album Name:", "").strip().strip("\"")
+            elif "Picture received, length" in line:
+                try:
+                    files = sorted(os.listdir(COVER_ART_PATH), key=lambda x: os.path.getmtime(os.path.join(COVER_ART_PATH, x)), reverse=True)
+                    if files:
+                        cover_path = os.path.join(COVER_ART_PATH, files[0])
+                except:
+                    pass
+
+        if title and artist and album:
+            updated = (title != last_title or artist != last_artist or album != last_album or cover_path != last_cover)
+            last_title = title
+            last_artist = artist
+            last_album = album
+            last_cover = cover_path
+            return title, artist, album, cover_path, updated
+
+        return last_title, last_artist, last_album, last_cover, False
+
+    except Exception as e:
+        print("[shairport_listener] Błąd:", e)
+        return last_title, last_artist, last_album, last_cover, False

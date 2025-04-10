@@ -1,60 +1,71 @@
+# shairport_listener.py
+
 import subprocess
-import re
-from collections import defaultdict
 import time
+import tempfile
+import os
 
-PIPE_PATH = "/tmp/shairport-sync-metadata"
-READER_BIN = "/usr/local/bin/shairport-sync-metadata-reader"
+COVER_ART_PATH = "/tmp/shairport-sync/.cache/coverart/"
 
-def parse_metadata_line(line):
-    """Parsuje pojedynczą linię metadanych."""
-    if ':' in line:
-        key, value = line.split(':', 1)
-        return key.strip(), value.strip().strip('"')
-    elif 'Picture received' in line:
-        match = re.search(r"length (\d+) bytes", line)
-        if match:
-            return 'cover_path', "/tmp/cover.jpg"
-    return None, None
+last_title = None
+last_artist = None
+last_album = None
+last_cover = None
 
 def read_shairport_metadata():
-    """Czyta metadane ze strumienia i zwraca jako słownik."""
-    metadata = defaultdict(lambda: None)
+    global last_title, last_artist, last_album, last_cover
+
     try:
-        with subprocess.Popen(
-            [READER_BIN, PIPE_PATH],
+        proc = subprocess.Popen(
+            ["shairport-sync-metadata-reader", "--raw", "/tmp/shairport-sync-metadata"],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            text=True
-        ) as proc:
-            start_time = time.time()
-            timeout = 1.5  # sekundy
-            while time.time() - start_time < timeout:
-                line = proc.stdout.readline()
-                if not line:
-                    if proc.poll() is not None:
-                        break
-                    continue
-                line = line.strip()
-                key, value = parse_metadata_line(line)
-                if key:
-                    metadata[key.lower()] = value
-                if key == "title":
-                    break
-            proc.terminate()
-    except FileNotFoundError:
-        print(f"[ERROR] Nie znaleziono {READER_BIN}")
+            universal_newlines=True
+        )
+
+        title = None
+        artist = None
+        album = None
+        cover_path = None
+
+        start_time = time.time()
+        timeout = 2
+
+        while True:
+            if time.time() - start_time > timeout:
+                proc.kill()
+                break
+
+            line = proc.stdout.readline()
+            if not line:
+                continue
+
+            line = line.strip()
+
+            if line.startswith("Title:"):
+                title = line.replace("Title:", "").strip().strip("\"")
+            elif line.startswith("Artist:"):
+                artist = line.replace("Artist:", "").strip().strip("\"")
+            elif line.startswith("Album Name:"):
+                album = line.replace("Album Name:", "").strip().strip("\"")
+            elif "Picture received, length" in line:
+                try:
+                    files = sorted(os.listdir(COVER_ART_PATH), key=lambda x: os.path.getmtime(os.path.join(COVER_ART_PATH, x)), reverse=True)
+                    if files:
+                        cover_path = os.path.join(COVER_ART_PATH, files[0])
+                except:
+                    pass
+
+        if title and artist and album:
+            updated = (title != last_title or artist != last_artist or album != last_album or cover_path != last_cover)
+            last_title = title
+            last_artist = artist
+            last_album = album
+            last_cover = cover_path
+            return title, artist, album, cover_path, updated
+
+        return last_title, last_artist, last_album, last_cover, False
+
     except Exception as e:
-        print(f"[ERROR] Błąd podczas czytania metadanych: {e}")
-
-    return {
-        "title": metadata.get("title"),
-        "artist": metadata.get("artist"),
-        "album": metadata.get("album name"),
-        "cover_path": metadata.get("cover_path"),
-    }
-
-if __name__ == "__main__":
-    print("[DEBUG] Czytam metadane z Shairport Sync...")
-    data = read_shairport_metadata()
-    print("[DEBUG] Odczytane metadane:", data)
+        print("[shairport_listener] Błąd:", e)
+        return last_title, last_artist, last_album, last_cover, False
