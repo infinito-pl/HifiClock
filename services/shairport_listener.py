@@ -1,20 +1,3 @@
-# shairport_listener.py
-
-import subprocess
-import time
-import tempfile
-import os
-
-def clean_value(value):
-    return value.strip().strip('"').strip()
-
-COVER_ART_PATH = "/tmp/shairport-sync/.cache/coverart/"
-
-last_title = None
-last_artist = None
-last_album = None
-last_cover = None
-
 def read_shairport_metadata():
     global last_title, last_artist, last_album, last_cover
 
@@ -32,13 +15,8 @@ def read_shairport_metadata():
         cover_path = None
 
         start_time = time.time()
-        timeout = 2
 
         while True:
-            if time.time() - start_time > timeout:
-                proc.kill()
-                break
-
             line = proc.stdout.readline()
             if not line:
                 continue
@@ -59,13 +37,16 @@ def read_shairport_metadata():
                 except:
                     pass
 
-        if title and artist and album:
-            updated = (title != last_title or artist != last_artist or album != last_album or cover_path != last_cover)
-            last_title = title
-            last_artist = artist
-            last_album = album
-            last_cover = cover_path
-            return title, artist, album, cover_path, updated
+            if title and artist and album:
+                updated = (title != last_title or artist != last_artist or album != last_album or cover_path != last_cover)
+                last_title = title
+                last_artist = artist
+                last_album = album
+                last_cover = cover_path
+                return title, artist, album, cover_path, updated
+
+            if time.time() - start_time > 10:
+                break
 
         return last_title, last_artist, last_album, last_cover, False
 
