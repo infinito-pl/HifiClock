@@ -47,6 +47,13 @@ def run_player_screen(screen, test_mode=False):
         screen.fill(BACKGROUND_COLOR)
 
         title, artist, album, cover_path = get_current_track_info_shairport()
+        
+        if not any([title, artist, album]):
+            title = "Untitled"
+            artist = "No artist"
+            album = "No album"
+        if not cover_path:
+            cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
 
         if cover_path:
             cover_image = pygame.image.load(cover_path)
