@@ -7,7 +7,7 @@ import time
 import pygame
 import cairosvg
 import io
-from services.metadata_shairport import get_current_track_info_shairport, get_current_progress_shairport
+from services.metadata_shairport import get_current_track_info_shairport
 
 # Ładowanie modułu do metadanych Shairport. 
 # Jeśli nie istnieje, po prostu mamy fallback (None, None, None, None).
@@ -121,9 +121,6 @@ def run_player_screen(screen, test_mode=False):
         # Próba wczytania NOWYCH metadanych z Shairport
         # (funkcja jest nieblokująca – jeśli nic nie ma, zwróci None'y)
         title, artist, album, cover_path = get_current_track_info_shairport()
-        progress = get_current_progress_shairport()
-        if progress is not None:
-            track_progress = progress
         print(f'[DEBUG] track info: "{title}". "{artist}". "{album}". "{cover_path}".')
         
         if any([title, artist, album, cover_path]):
