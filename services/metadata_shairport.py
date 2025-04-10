@@ -41,11 +41,11 @@ def get_current_track_info_shairport():
                 print("[DEBUG]", line)
 
             if line.startswith("Title:"):
-                title = line.split(":", 1)[1].strip().strip('"')
+                title = line.split(":", 1)[1].strip('"').strip('".')
             elif line.startswith("Artist:"):
-                artist = line.split(":", 1)[1].strip().strip('"')
+                artist = line.split(":", 1)[1].strip('"').strip('".')
             elif line.startswith("Album Name:"):
-                album = line.split(":", 1)[1].strip().strip('"')
+                album = line.split(":", 1)[1].strip('"').strip('".')
             elif "Picture received" in line and "length" in line:
                 cover_path = "/tmp/shairport-sync/.cache/coverart/last_cover.jpg"
 
