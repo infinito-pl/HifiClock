@@ -29,7 +29,7 @@ def update_shairport_metadata():
             text=True,
         ) as proc:
             try:
-                output, _ = proc.communicate(timeout=0.3)
+                output, _ = proc.communicate(timeout=0.05)
             except subprocess.TimeoutExpired:
                 proc.kill()
                 output, _ = proc.communicate()
@@ -39,19 +39,20 @@ def update_shairport_metadata():
         updated = False
 
         if not output:
+            print("[DEBUG] No output received from reader.")
             return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
 
         for line in output.splitlines():
             line = line.strip()
             print("[DEBUG] LINE:", line)
             if line.startswith("Album Name:"):
-                _last["album"] = line.replace("Album Name:", "").strip()
+                _last["album"] = line.replace("Album Name:", "").strip().strip('"').strip()
                 updated = True
             elif line.startswith("Artist:"):
-                _last["artist"] = line.replace("Artist:", "").strip()
+                _last["artist"] = line.replace("Artist:", "").strip().strip('"').strip()
                 updated = True
             elif line.startswith("Title:"):
-                _last["title"] = line.replace("Title:", "").strip()
+                _last["title"] = line.replace("Title:", "").strip().strip('"').strip()
                 updated = True
             elif line.startswith("Picture received"):
                 match = re.search(r"length (\d+) bytes", line)
