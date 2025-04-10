@@ -15,6 +15,9 @@ except ImportError:
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
+def truncate_text(text, max_length=30):
+    return text if len(text) <= max_length else text[:max_length - 3] + "..."
+
 def run_player_screen(screen, test_mode=False):
     WIDTH, HEIGHT = 800, 800
     CENTER_X = WIDTH // 2
@@ -36,8 +39,9 @@ def run_player_screen(screen, test_mode=False):
     if not os.path.isfile(font_bold_path):
         font_bold_path = pygame.font.get_default_font()
 
-    font_regular = pygame.font.Font(font_regular_path, 20)
-    font_bold    = pygame.font.Font(font_bold_path, 28)
+    font_artist = pygame.font.Font(font_bold_path, 50)
+    font_album  = pygame.font.Font(font_regular_path, 50)
+    font_title  = pygame.font.Font(font_regular_path, 50)
 
     while running:
         for event in pygame.event.get():
@@ -59,17 +63,26 @@ def run_player_screen(screen, test_mode=False):
         cover_image = pygame.transform.scale(cover_image, (WIDTH, HEIGHT))
         screen.blit(cover_image, (0, 0))
 
-        if title:
-            text_surface = font_bold.render(title, True, WHITE)
-            screen.blit(text_surface, (CENTER_X - text_surface.get_width() // 2, CENTER_Y - 60))
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(128)
+        overlay.fill((0, 0, 0))
+        screen.blit(overlay, (0, 0))
+
+        artist = truncate_text(artist)
+        album = truncate_text(album)
+        title = truncate_text(title)
 
         if artist:
-            text_surface = font_regular.render(artist, True, WHITE)
-            screen.blit(text_surface, (CENTER_X - text_surface.get_width() // 2, CENTER_Y - 20))
+            artist_surface = font_artist.render(artist, True, WHITE)
+            screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 90))
 
         if album:
-            text_surface = font_regular.render(album, True, WHITE)
-            screen.blit(text_surface, (CENTER_X - text_surface.get_width() // 2, CENTER_Y + 20))
+            album_surface = font_album.render(album, True, WHITE)
+            screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 30))
+
+        if title:
+            title_surface = font_title.render(title, True, WHITE)
+            screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 30))
 
         pygame.display.flip()
         clock.tick(30)
