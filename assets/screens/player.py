@@ -16,8 +16,6 @@ except ImportError:
     def get_current_track_info_shairport():
         return (None, None, None, None)
 
-last_metadata = (None, None, None, None)
-
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 def run_player_screen(screen, test_mode=False):
@@ -103,12 +101,6 @@ def run_player_screen(screen, test_mode=False):
     RING_WIDTH  = 16
     RING_RADIUS = 380
 
-    # Przechowywanie poprzednich metadanych, by nie "zerować" przy braku nowych
-    current_title  = "Unknown Track"
-    current_artist = "Unknown Artist"
-    current_album  = "Unknown Album"
-    current_cover  = default_cover_path
-
     # Postęp testowy – docelowo można wczytywać z metadanych 'prgr'
     track_progress = 0.3
 
@@ -116,6 +108,8 @@ def run_player_screen(screen, test_mode=False):
     start_y = None
     # W trybie normalnym – finger swipe up => clock
     # W trybie test – scroll up => clock
+
+    last_metadata = (None, None, None, None)
 
     while running:
         # Próba wczytania NOWYCH metadanych z Shairport
