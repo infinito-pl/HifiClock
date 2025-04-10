@@ -30,6 +30,16 @@ def read_shairport_metadata():
                 print("[DEBUG] Exit Active State. Stopping metadata reading.")
                 return last_title, last_artist, last_album, last_cover, False
 
+            if active_state:
+                if line.startswith("Title:"):
+                    title = clean_value(line.split(': "', 1)[1].strip('".'))
+                elif line.startswith("Artist:"):
+                    artist = clean_value(line.split(': "', 1)[1].strip('".'))
+                elif line.startswith("Album Name:"):
+                    album = clean_value(line.split(': "', 1)[1].strip('".'))
+                elif "Picture received" in line and "length" in line:
+                    cover_path = "/tmp/shairport-sync/.cache/coverart/last_cover.jpg"
+
                 # Jeśli metadane się zmieniły, zaktualizuj
                 if title != last_title or artist != last_artist or album != last_album or cover_path != last_cover:
                     last_title = title
@@ -38,9 +48,9 @@ def read_shairport_metadata():
                     last_cover = cover_path
                     return title, artist, album, cover_path, True
 
-            # Jeśli nie otrzymamy nowych danych przez 1 sekundę, zakończ odczyt
-            if time.time() - start_time > 1.0:
-                break
+            # Sprawdzanie co 0.1 sekundy, zamiast czekać przez 1 sekundę
+            if time.time() - start_time > 0.1:
+                start_time = time.time()  # Resetujemy czas, aby sprawdzać częściej
 
         return last_title, last_artist, last_album, last_cover, False
 
