@@ -1,9 +1,11 @@
-# main.py
 import os
 import sys
 import pygame
 from assets.screens.clock import run_clock_screen
 from assets.screens.player import run_player_screen
+
+should_switch_to_player = False  # Flaga do przełączania na ekran player
+should_switch_to_clock = False   # Flaga do przełączania na ekran zegara
 
 def get_current_track_info_shairport():
     # Mock function to emulate getting track info from Shairport
@@ -11,6 +13,8 @@ def get_current_track_info_shairport():
     return None, None, None, None
 
 def main():
+    global should_switch_to_player, should_switch_to_clock
+
     pygame.init()
     pygame.mixer.quit()
 
@@ -28,18 +32,28 @@ def main():
     while True:
         title, artist, album, cover_path = get_current_track_info_shairport()
 
+        if should_switch_to_player:
+            print("[DEBUG] Changing to player screen...")
+            current_screen = "player"
+            should_switch_to_player = False  # Resetujemy flagę po przełączeniu
+
+        if should_switch_to_clock:
+            print("[DEBUG] Changing to clock screen...")
+            current_screen = "clock"
+            should_switch_to_clock = False  # Resetujemy flagę po przełączeniu
+
         if current_screen == "clock":
             result = run_clock_screen(screen, test_mode=test_mode)
             if result == "player":
-                current_screen = "player"
+                should_switch_to_player = True  # Ustawiamy flagę do przełączenia na player
             else:
                 break
         elif current_screen == "player":
             result = run_player_screen(screen, test_mode=test_mode)
             if result == "clock":
-                current_screen = "clock"
+                should_switch_to_clock = True  # Ustawiamy flagę do przełączenia na clock
             elif title is None or artist is None:  # Sprawdzenie, czy muzyka jest zatrzymana
-                current_screen = "clock"  # Jeśli brak danych z Shairport, wracamy na zegar
+                should_switch_to_clock = True  # Po zakończeniu połączenia przechodzimy na zegar
             else:
                 # Muzyka wciąż odtwarzana
                 last_playing_status = (title, artist, album, cover_path)

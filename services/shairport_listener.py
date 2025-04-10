@@ -1,5 +1,5 @@
 def read_shairport_metadata():
-    global last_title, last_artist, last_album, last_cover, active_state
+    global last_title, last_artist, last_album, last_cover, active_state, should_switch_to_player, should_switch_to_clock
 
     try:
         proc = subprocess.Popen(
@@ -28,6 +28,7 @@ def read_shairport_metadata():
             elif "[DEBUG] Exit Active State" in line:
                 active_state = False
                 print("[DEBUG] Exit Active State. Stopping metadata reading.")
+                should_switch_to_clock = True  # Połączenie zostało zakończone, wróć do zegara
                 return last_title, last_artist, last_album, last_cover, False
 
             if active_state:
@@ -46,11 +47,12 @@ def read_shairport_metadata():
                     last_artist = artist
                     last_album = album
                     last_cover = cover_path
+                    should_switch_to_player = True  # Przełączamy ekran na player
                     return title, artist, album, cover_path, True
 
-            # Sprawdzanie co 0.1 sekundy, zamiast czekać przez 1 sekundę
+            # Sprawdzamy co 0.1 sekundy
             if time.time() - start_time > 0.1:
-                start_time = time.time()  # Resetujemy czas, aby sprawdzać częściej
+                start_time = time.time()
 
         return last_title, last_artist, last_album, last_cover, False
 
