@@ -21,6 +21,18 @@ PIPE_PATH = "/tmp/shairport-sync-metadata"
 TMP_COVER = "/tmp/cover.jpg"  # or .png, magic number check is done during parsing
 STATE_FILE = "/tmp/shairport_state.json"
 
+def init_state_file():
+    if not os.path.exists(STATE_FILE):
+        logger.debug(f"Creating state file: {STATE_FILE}")
+        default_state = {
+            "active_state": False,
+            "should_switch_to_player": False,
+            "should_switch_to_clock": False
+        }
+        with open(STATE_FILE, 'w') as f:
+            json.dump(default_state, f)
+        logger.debug("State file initialized with default values")
+
 def save_state():
     state = {
         "active_state": active_state,
@@ -29,6 +41,7 @@ def save_state():
     }
     with open(STATE_FILE, 'w') as f:
         json.dump(state, f)
+    logger.debug(f"State saved: {state}")
 
 def load_state():
     global active_state, should_switch_to_player, should_switch_to_clock
@@ -38,8 +51,13 @@ def load_state():
             active_state = state.get("active_state", False)
             should_switch_to_player = state.get("should_switch_to_player", False)
             should_switch_to_clock = state.get("should_switch_to_clock", False)
-    except (FileNotFoundError, json.JSONDecodeError):
-        pass
+            logger.debug(f"State loaded: {state}")
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        logger.error(f"Error loading state: {e}")
+        init_state_file()
+
+# Inicjalizacja pliku stanu przy starcie
+init_state_file()
 
 # Funkcja do zarządzania stanem ikony play/pause
 def update_play_pause_icon():
