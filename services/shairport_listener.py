@@ -3,6 +3,8 @@ import re
 import tempfile
 import os
 import time
+import threading
+from queue import Queue, Empty
 
 PIPE_PATH = "/tmp/shairport-sync-metadata"
 TMP_COVER = "/tmp/cover.jpg"
@@ -14,17 +16,20 @@ _last = {
     "cover_path": None,
 }
 
+_metadata_queue = Queue()
+_metadata_thread = None
+_listener_started = False
+
 last_metadata_update = 0
 metadata_refresh_interval = 2  # seconds
 
-def update_shairport_metadata():
-    try:
-        global last_metadata_update
-        now = time.time()
-        if now - last_metadata_update < metadata_refresh_interval:
-            return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
-        last_metadata_update = now
+def start_metadata_listener():
+    global _metadata_thread, _listener_started
+    if _listener_started:
+        return
+    _listener_started = True
 
+    def listener():
         with subprocess.Popen(
             ["/usr/local/bin/shairport-sync-metadata-reader"],
             stdin=open(PIPE_PATH),
@@ -32,53 +37,62 @@ def update_shairport_metadata():
             stderr=subprocess.DEVNULL,
             text=True,
         ) as proc:
-            try:
-                output, _ = proc.communicate(timeout=0.5)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                output, _ = proc.communicate()
+            for line in proc.stdout:
+                _metadata_queue.put(line.strip())
 
-        if not output:
-            print("[DEBUG] Brak danych z readera po 0.5s.")
-            return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
+    _metadata_thread = threading.Thread(target=listener, daemon=True)
+    _metadata_thread.start()
 
-        if all(key not in output for key in ["Title:", "Artist:", "Album Name:", "Picture received"]):
-            print("[DEBUG] Pusty output bez metadanych — ignoruję.")
-            return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
+def update_shairport_metadata():
+    start_metadata_listener()
+    global _last, last_metadata_update
 
-        current = _last.copy()
-
-        for line in output.splitlines():
-            line = line.strip()
-            if line.startswith("Album Name:"):
-                current["album"] = line.replace("Album Name:", "").strip('" .')
-            elif line.startswith("Artist:"):
-                current["artist"] = line.replace("Artist:", "").strip('" .')
-            elif line.startswith("Title:"):
-                current["title"] = line.replace("Title:", "").strip('" .')
-            elif "Picture received" in line:
-                match = re.search(r"length (\d+) bytes", line)
-                if match and int(match.group(1)) > 0:
-                    current["cover_path"] = TMP_COVER
-
-        updated = current != _last
-
-        # Zabezpieczenie przed cofnięciem do Unknown, jeśli tylko chwilowo brak outputu
-        if not any(current.values()) and any(_last.values()):
-            print("[DEBUG] Zignorowano pusty zestaw metadanych.")
-            return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
-
-        # Ignoruj zmianę jeśli tylko cover_path przełączyło się na None
-        if updated and current["cover_path"] is None and _last["cover_path"] and all(
-            current[k] == _last[k] for k in ("title", "artist", "album")
-        ):
-            updated = False
-
-        if updated:
-            _last.update(current)
-            print(f"[DEBUG] Nowe metadane: '{_last['title']}' — {_last['artist']} / {_last['album']} / {_last['cover_path']}")
-        return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], updated)
-
-    except Exception as e:
-        print(f"[DEBUG] Error reading metadata: {e}")
+    now = time.time()
+    if now - last_metadata_update < metadata_refresh_interval:
         return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
+    last_metadata_update = now
+
+    lines = []
+    try:
+        while True:
+            line = _metadata_queue.get_nowait()
+            lines.append(line)
+    except Empty:
+        pass
+
+    if not lines:
+        print("[DEBUG] Brak danych z kolejki.")
+        return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
+
+    if all(key not in "\n".join(lines) for key in ["Title:", "Artist:", "Album Name:", "Picture received"]):
+        print("[DEBUG] Pusty output bez metadanych — ignoruję.")
+        return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
+
+    current = _last.copy()
+    for line in lines:
+        if line.startswith("Album Name:"):
+            current["album"] = line.replace("Album Name:", "").strip('" .')
+        elif line.startswith("Artist:"):
+            current["artist"] = line.replace("Artist:", "").strip('" .')
+        elif line.startswith("Title:"):
+            current["title"] = line.replace("Title:", "").strip('" .')
+        elif "Picture received" in line:
+            match = re.search(r"length (\d+) bytes", line)
+            if match and int(match.group(1)) > 0:
+                current["cover_path"] = TMP_COVER
+
+    updated = current != _last
+
+    if not any(current.values()) and any(_last.values()):
+        print("[DEBUG] Zignorowano pusty zestaw metadanych.")
+        return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
+
+    if updated and current["cover_path"] is None and _last["cover_path"] and all(
+        current[k] == _last[k] for k in ("title", "artist", "album")
+    ):
+        updated = False
+
+    if updated:
+        _last.update(current)
+        print(f"[DEBUG] Nowe metadane: '{_last['title']}' — {_last['artist']} / {_last['album']} / {_last['cover_path']}")
+    return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], updated)
