@@ -19,15 +19,6 @@ except ImportError:
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
-# Inicjalizacja metadanych
-title, artist, album, cover_path = get_current_track_info_shairport()
-print(f'[DEBUG] track info: {title}, {artist}, {album}, {cover_path}')
-current_title  = title or "Unknown Track"
-current_artist = artist or "Unknown Artist"
-current_album  = album or "Unknown Album"
-current_cover  = cover_path if cover_path and os.path.exists(cover_path) else os.path.join(BASE_DIR, "assets", "images", "cover.png")
-last_metadata = (title, artist, album, cover_path)
-
 def run_player_screen(screen, test_mode=False):
     """
     Ekran odtwarzacza z layoutem:
@@ -119,20 +110,25 @@ def run_player_screen(screen, test_mode=False):
     # W trybie normalnym – finger swipe up => clock
     # W trybie test – scroll up => clock
 
-    while running:
-        # Próba wczytania NOWYCH metadanych z Shairport
-        # (funkcja jest nieblokująca – jeśli nic nie ma, zwróci None'y)
-        title, artist, album, cover_path = get_current_track_info_shairport()
-        print(f'[DEBUG] track info: {title}, {artist}, {album}, {cover_path}')
-        
-        if any([title, artist, album, cover_path]):
-            current_title  = title or current_title
-            current_artist = artist or current_artist
-            current_album  = album or current_album
-            if cover_path and os.path.exists(cover_path):
-                current_cover = cover_path
-            last_metadata = (title, artist, album, cover_path)
+    current_title = "Unknown Track"
+    current_artist = "Unknown Artist"
+    current_album = "Unknown Album"
+    current_cover = os.path.join(BASE_DIR, "assets", "images", "cover.png")
+    last_metadata = (None, None, None, None)
 
+    # Próba wczytania NOWYCH metadanych z Shairport
+    title, artist, album, cover_path = get_current_track_info_shairport()
+    print(f'[DEBUG] track info: {title}, {artist}, {album}, {cover_path}')
+    
+    if any([title, artist, album, cover_path]):
+        current_title  = title or current_title
+        current_artist = artist or current_artist
+        current_album  = album or current_album
+        if cover_path and os.path.exists(cover_path):
+            current_cover = cover_path
+        last_metadata = (title, artist, album, cover_path)
+
+    while running:
         # Zdarzenia
         for event in pygame.event.get():
             #print("[player debug] event:", event)
