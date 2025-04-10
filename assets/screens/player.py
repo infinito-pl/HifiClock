@@ -40,7 +40,7 @@ def run_player_screen(screen, test_mode=False):
         font_bold_path = pygame.font.get_default_font()
 
     font_artist = pygame.font.Font(font_bold_path, 50)
-    font_album  = pygame.font.Font(font_regular_path, 50)
+    font_album  = pygame.font.Font(font_regular_path, 30)
     font_title  = pygame.font.Font(font_regular_path, 50)
 
     while running:
@@ -74,15 +74,15 @@ def run_player_screen(screen, test_mode=False):
 
         if artist:
             artist_surface = font_artist.render(artist, True, WHITE)
-            screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 90))
+            screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 175))
 
         if album:
             album_surface = font_album.render(album, True, WHITE)
-            screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 30))
+            screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 100))
 
         if title:
             title_surface = font_title.render(title, True, WHITE)
-            screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 30))
+            screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
 
         pygame.display.flip()
         clock.tick(30)
