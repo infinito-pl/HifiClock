@@ -111,6 +111,11 @@ def run_player_screen(screen, test_mode=False):
 
     last_metadata = (None, None, None, None)
 
+    current_title  = "Unknown Track"
+    current_artist = "Unknown Artist"
+    current_album  = "Unknown Album"
+    current_cover  = default_cover_path
+
     while running:
         # Próba wczytania NOWYCH metadanych z Shairport
         # (funkcja jest nieblokująca – jeśli nic nie ma, zwróci None'y)
