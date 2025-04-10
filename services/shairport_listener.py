@@ -19,6 +19,12 @@ metadata_refresh_interval = 2  # seconds
 
 def update_shairport_metadata():
     try:
+        global last_metadata_update
+        now = time.time()
+        if now - last_metadata_update < metadata_refresh_interval:
+            return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
+        last_metadata_update = now
+
         with subprocess.Popen(
             ["/usr/local/bin/shairport-sync-metadata-reader"],
             stdin=open(PIPE_PATH),
