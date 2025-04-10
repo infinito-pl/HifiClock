@@ -132,7 +132,7 @@ def read_shairport_metadata():
             for line in proc.stdout:
                 line = line.strip()
 
-                if "Enter Active State" in line:
+                if "Enter Active State" in line or "Play -- first frame received" in line or "Resume" in line:
                     active_state = True
                     logger.debug(f"Active state (listener): {active_state}")
                     should_switch_to_player = True
@@ -140,27 +140,13 @@ def read_shairport_metadata():
                     save_state()
                     logger.debug("Shairport entered active state")
 
-                elif "Exit Active State" in line:
+                elif "Exit Active State" in line or "Pause" in line or "Stop" in line:
                     active_state = False
                     logger.debug(f"Active state (listener): {active_state}")
                     should_switch_to_player = False
                     should_switch_to_clock = True
                     save_state()
                     logger.debug("Shairport exited active state")
-
-                elif "Play -- first frame received" in line:
-                    active_state = True
-                    logger.debug(f"Active state (Play): {active_state}")
-                    save_state()
-                    update_play_pause_icon()
-                    logger.debug("Play: First frame received, music is playing.")
-
-                elif "Pause" in line:
-                    active_state = False
-                    logger.debug(f"Active state (Pause): {active_state}")
-                    save_state()
-                    update_play_pause_icon()
-                    logger.debug("Pause: Music is paused.")
 
                 # Regularly fetch metadata when active
                 if active_state:
