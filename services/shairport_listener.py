@@ -48,7 +48,6 @@ def read_shairport_metadata():
                     last_album = album
                     last_cover = cover_path
                     should_switch_to_player = True  # Przełączamy ekran na player
-                    return title, artist, album, cover_path, True
 
             # Sprawdzamy co 0.1 sekundy
             if time.time() - start_time > 0.1:
