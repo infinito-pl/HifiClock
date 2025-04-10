@@ -17,6 +17,7 @@ _last = {"title": None, "artist": None, "album": None, "cover_path": None}
 def get_current_track_info_shairport():
     import subprocess
     import time
+    import os
 
     DEBUG = True
     output_path = "/tmp/shairport-sync-metadata"
@@ -58,5 +59,12 @@ def get_current_track_info_shairport():
         if DEBUG:
             print(f"[DEBUG] Failed to run reader: {e}")
         return (None, None, None, None)
+
+    # Dodajemy sprawdzenie, czy okładka istnieje
+    if cover_path and os.path.isfile(cover_path):
+        print(f"[DEBUG] Found cover: {cover_path}")
+    else:
+        cover_path = None
+        print("[DEBUG] No cover found.")
 
     return (title, artist, album, cover_path)
