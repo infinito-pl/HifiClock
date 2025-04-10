@@ -23,6 +23,9 @@ def run_player_screen(screen, test_mode=False):
     CENTER_X = WIDTH // 2
     CENTER_Y = HEIGHT // 2
 
+    SWIPE_THRESHOLD = 0.25
+    start_y = None  # początkowa pozycja swipa
+
     clock = pygame.time.Clock()
     running = True
 
@@ -47,6 +50,15 @@ def run_player_screen(screen, test_mode=False):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            elif event.type == pygame.FINGERDOWN:
+                start_y = event.y * HEIGHT
+            elif event.type == pygame.FINGERUP and start_y is not None:
+                end_y = event.y * HEIGHT
+                delta_y = start_y - end_y  # Zmiana na odwrócony gest
+                if delta_y > SWIPE_THRESHOLD:
+                    pygame.event.clear()
+                    return "clock"  # Przechodzimy do zegarka
+                start_y = None
 
         screen.fill(BACKGROUND_COLOR)
 

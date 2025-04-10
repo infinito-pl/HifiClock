@@ -5,6 +5,9 @@ import time
 import tempfile
 import os
 
+def clean_value(value):
+    return value.strip().strip('"').strip()
+
 COVER_ART_PATH = "/tmp/shairport-sync/.cache/coverart/"
 
 last_title = None
@@ -43,11 +46,11 @@ def read_shairport_metadata():
             line = line.strip()
 
             if line.startswith("Title:"):
-                title = line.replace("Title:", "").strip().strip("\"")
+                title = clean_value(line.replace("Title:", ""))
             elif line.startswith("Artist:"):
-                artist = line.replace("Artist:", "").strip().strip("\"")
+                artist = clean_value(line.replace("Artist:", ""))
             elif line.startswith("Album Name:"):
-                album = line.replace("Album Name:", "").strip().strip("\"")
+                album = clean_value(line.replace("Album Name:", ""))
             elif "Picture received, length" in line:
                 try:
                     files = sorted(os.listdir(COVER_ART_PATH), key=lambda x: os.path.getmtime(os.path.join(COVER_ART_PATH, x)), reverse=True)
