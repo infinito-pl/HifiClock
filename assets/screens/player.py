@@ -1,5 +1,7 @@
 # player.py
 import pygame
+import os
+
 from services.shairport_listener import current_metadata
 
 def truncate_text(text, max_length=30):
