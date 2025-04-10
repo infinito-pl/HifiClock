@@ -48,7 +48,7 @@ def get_current_track_info_shairport():
             elif line.startswith("Album Name:"):
                 album = line.split(': "', 1)[1].strip('".')
             elif "Picture received" in line and "length" in line:
-                cover_path = "/tmp/shairport-sync/.cache/coverart/last_cover.jpg"
+                cover_path = "/tmp/shairport-sync/.cache/coverart/last_cover.png"
 
             if time.time() - start_time > 1.0:
                 break
