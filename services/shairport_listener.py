@@ -23,6 +23,7 @@ _listener_started = False
 last_metadata_update = 0
 metadata_refresh_interval = 2  # seconds
 empty_attempts = 0
+max_empty_attempts = 3
 
 def start_metadata_listener():
     global _metadata_thread, _listener_started
@@ -47,10 +48,9 @@ def start_metadata_listener():
 
 def update_shairport_metadata():
     start_metadata_listener()
-    global _last, last_metadata_update, empty_attempts
+    global _last, empty_attempts
 
     lines = []
-    # Ograniczenie kolejki, by uniknąć przestarzałych metadanych
     while _metadata_queue.qsize() > 100:
         try:
             _metadata_queue.get_nowait()
@@ -66,7 +66,15 @@ def update_shairport_metadata():
 
     if not lines:
         print("[DEBUG] Brak danych z kolejki.")
-        return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
+        empty_attempts += 1
+        if empty_attempts < max_empty_attempts:
+            print(f"[DEBUG] {empty_attempts}x brak danych — zachowuję poprzednie.")
+            return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
+        else:
+            print(f"[DEBUG] Osiągnięto limit {max_empty_attempts} pustych prób — czyszczę metadane.")
+            _last = {"title": None, "artist": None, "album": None, "cover_path": None}
+            empty_attempts = 0
+            return (None, None, None, None, True)
 
     if all(key not in "\n".join(lines) for key in ["Title:", "Artist:", "Album Name:", "Picture received"]):
         print("[DEBUG] Pusty output bez metadanych — ignoruję.")
@@ -86,23 +94,13 @@ def update_shairport_metadata():
                 current["cover_path"] = TMP_COVER
 
     updated = current != _last
+    empty_attempts = 0
 
     if not any(current.values()):
         print("[DEBUG] Pusty zestaw metadanych — zachowuję poprzednie.")
         return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
 
-    if updated and current["cover_path"] is None and _last["cover_path"] and all(
-        current[k] == _last[k] for k in ("title", "artist", "album")
-    ):
-        updated = False
-
     if updated:
         _last.update(current)
         print(f"[DEBUG] Nowe metadane: '{_last['title']}' — {_last['artist']} / {_last['album']} / {_last['cover_path']}")
-    else:
-        empty_attempts += 1
-        if empty_attempts < 3:
-            print(f"[DEBUG] {empty_attempts}x pusty zestaw — zachowuję poprzednie.")
-            return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
-
     return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], updated)
