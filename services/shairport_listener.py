@@ -14,10 +14,6 @@ _last = {
 }
 
 def update_shairport_metadata():
-    """
-    Reads metadata from shairport-sync-metadata pipe using the official reader.
-    Returns: (title, artist, album, cover_path, updated: bool)
-    """
     try:
         with subprocess.Popen(
             ["/usr/local/bin/shairport-sync-metadata-reader"],
@@ -32,10 +28,8 @@ def update_shairport_metadata():
                 proc.kill()
                 output, _ = proc.communicate()
 
-        if not output:
-            # Do not clear metadata if no output received
+        if not output or all(key not in output for key in ["Title:", "Artist:", "Album Name:", "Picture received"]):
             print("[DEBUG] No metadata output; returning last known values.")
-            print(f"[DEBUG] Brak danych z readera po 0.5s.")
             return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
 
         current = _last.copy()
@@ -48,21 +42,22 @@ def update_shairport_metadata():
                 current["artist"] = line.replace("Artist:", "").strip('" .')
             elif line.startswith("Title:"):
                 current["title"] = line.replace("Title:", "").strip('" .')
-            elif line.startswith("Picture received"):
+            elif "Picture received" in line:
                 match = re.search(r"length (\d+) bytes", line)
                 if match and int(match.group(1)) > 0:
                     current["cover_path"] = TMP_COVER
 
         updated = current != _last
+
+        # Ignoruj zmianę jeśli tylko cover_path przełączyło się na None
+        if updated and current["cover_path"] is None and _last["cover_path"] and all(
+            current[k] == _last[k] for k in ("title", "artist", "album")
+        ):
+            updated = False
+
         if updated:
             _last.update(current)
             print(f"[DEBUG] Nowe metadane: '{_last['title']}' — {_last['artist']} / {_last['album']} / {_last['cover_path']}")
-        else:
-            # Reprint current known values for debug clarity
-            print(f"[DEBUG] Metadata still current: '{_last['title']}' — {_last['artist']} / {_last['album']} / {_last['cover_path']}")
-
-        print(f"[DEBUG] RAW output:\n{output}")
-
         return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], updated)
 
     except Exception as e:
