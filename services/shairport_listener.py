@@ -1,6 +1,14 @@
 import os
 import subprocess
 import time
+import logging
+
+# Konfiguracja logowania
+logging.basicConfig(
+    level=logging.DEBUG,  # Poziom logowania
+    format='%(asctime)s - %(levelname)s - %(message)s',
+)
+logger = logging.getLogger(__name__)
 
 # Global variables for metadata tracking
 last_title = last_artist = last_album = last_cover = None
@@ -46,18 +54,22 @@ def get_current_track_info_shairport():
         proc.terminate()
 
     except Exception as e:
+        logger.error(f"Failed to retrieve metadata: {e}")
         return None, None, None, None
 
     # Checking if cover exists
     if cover_path and os.path.isfile(cover_path):
         last_cover = cover_path
+        logger.debug(f"Found cover: {cover_path}")
     else:
         last_cover = None
+        logger.debug("No cover found.")
 
     last_title = title
     last_artist = artist
     last_album = album
 
+    logger.debug(f"Metadata: Title={title}, Artist={artist}, Album={album}, Cover={cover_path}")
     return title, artist, album, cover_path
 
 # Function to listen to shairport state and control UI changes
@@ -81,17 +93,20 @@ def read_shairport_metadata():
                 active_state = True
                 should_switch_to_player = True
                 should_switch_to_clock = False
+                logger.info("Shairport entered active state")
 
             elif "Exit Active State" in line:
                 active_state = False
                 should_switch_to_player = False
                 should_switch_to_clock = True
+                logger.info("Shairport exited active state")
 
             # Continuously fetch metadata when active
             if active_state:
                 title, artist, album, cover_path = get_current_track_info_shairport()
                 if title != last_title or artist != last_artist or album != last_album:
                     last_title, last_artist, last_album, last_cover = title, artist, album, cover_path
+                    logger.debug("Metadata updated")
 
             # Timeout to break the loop after a certain duration
             if time.time() - start_time > 5.0:
@@ -100,7 +115,7 @@ def read_shairport_metadata():
         proc.terminate()
 
     except Exception as e:
-        print(f"Error in metadata listener: {e}")
+        logger.error(f"Error in reading shairport metadata: {e}")
 
 # Main function to start the listener
 if __name__ == "__main__":
