@@ -37,13 +37,15 @@ def read_shairport_metadata():
                 except:
                     pass
 
+            # Sprawdzamy, czy metadane się zmieniły
             if title and artist and album:
                 updated = (title != last_title or artist != last_artist or album != last_album or cover_path != last_cover)
-                last_title = title
-                last_artist = artist
-                last_album = album
-                last_cover = cover_path
-                return title, artist, album, cover_path, updated
+                if updated:  # Zaktualizuj tylko wtedy, gdy są nowe dane
+                    last_title = title
+                    last_artist = artist
+                    last_album = album
+                    last_cover = cover_path
+                    return title, artist, album, cover_path, updated
 
             if time.time() - start_time > 10:
                 break
