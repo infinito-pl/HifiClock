@@ -8,7 +8,7 @@ import io
 from services.shairport_listener import read_shairport_metadata
 
 try:
-    from services.metadata_shairport import get_current_track_info_shairport
+    from services.shairport_listener import get_current_track_info_shairport
 except ImportError:
     def get_current_track_info_shairport():
         return (None, None, None, None)
