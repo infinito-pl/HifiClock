@@ -82,6 +82,8 @@ def get_current_track_info_shairport():
 def read_shairport_metadata():
     global last_title, last_artist, last_album, last_cover, active_state, should_switch_to_player, should_switch_to_clock
 
+    start_time = time.time()  # Define start_time for timeout handling
+
     try:
         proc = subprocess.Popen(
             ["/usr/local/bin/shairport-sync-metadata-reader"],
@@ -116,6 +118,7 @@ def read_shairport_metadata():
 
             # Timeout to break the loop after a certain duration
             if time.time() - start_time > 5.0:
+                logger.debug("Timeout reached, breaking loop")
                 break
 
         proc.terminate()
