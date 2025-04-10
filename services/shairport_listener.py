@@ -39,26 +39,36 @@ def update_shairport_metadata():
         if not output:
             return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
 
+        current = _last.copy()
+
         for line in output.splitlines():
             line = line.strip()
             if line.startswith("Album Name:"):
-                _last["album"] = line.replace("Album Name:", "").strip('" .')
-                updated = True
+                value = line.replace("Album Name:", "").strip('" .')
+                if value != current["album"]:
+                    current["album"] = value
+                    updated = True
             elif line.startswith("Artist:"):
-                _last["artist"] = line.replace("Artist:", "").strip('" .')
-                updated = True
+                value = line.replace("Artist:", "").strip('" .')
+                if value != current["artist"]:
+                    current["artist"] = value
+                    updated = True
             elif line.startswith("Title:"):
-                _last["title"] = line.replace("Title:", "").strip('" .')
-                updated = True
+                value = line.replace("Title:", "").strip('" .')
+                if value != current["title"]:
+                    current["title"] = value
+                    updated = True
             elif line.startswith("Picture received"):
                 match = re.search(r"length (\d+) bytes", line)
                 if match and int(match.group(1)) > 0:
                     with open(TMP_COVER, "wb") as f:
                         f.write(b"")  # Placeholder; actual writing must be handled via chunk parsing if needed
-                    _last["cover_path"] = TMP_COVER
-                    updated = True
+                    if current["cover_path"] != TMP_COVER:
+                        current["cover_path"] = TMP_COVER
+                        updated = True
 
         if updated:
+            _last.update(current)
             print(f"[DEBUG] Nowe metadane: '{_last['title']}' — {_last['artist']} / {_last['album']} / {_last['cover_path']}")
         else:
             print("[DEBUG] Metadata not updated.")
