@@ -20,16 +20,6 @@ except ImportError:
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 def run_player_screen(screen, test_mode=False):
-    """
-    Ekran odtwarzacza z layoutem:
-      - Tło z okładką (50% opacity).
-      - Pierścień postępu (arc) – start w godz.12, do 360*progress.
-      - 3 przyciski: Prev, Play/Pause, Next (center).
-      - Teksty: Artist (~y= -175), Album (~y= -120), Title (~y= +120).
-      - Gest przejścia do 'clock': swipe up (dotyk) albo scroll w górę (test).
-    """
-
-    # Konfiguracja okna (width=height=800)
     WIDTH, HEIGHT = 800, 800
     CENTER_X = WIDTH // 2
     CENTER_Y = HEIGHT // 2
@@ -37,20 +27,17 @@ def run_player_screen(screen, test_mode=False):
     clock = pygame.time.Clock()
     running = True
 
-    # Kolory
     WHITE      = (255, 255, 255)
     BLACK      = (0,   0,   0)
-    SEMI_BLACK = (0,   0,   0, 128)  # 50% alpha
+    SEMI_BLACK = (0,   0,   0, 128)
 
-    # Czcionki
     font_regular_path = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Regular.ttf")
     font_bold_path    = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
 
-    font_artist = pygame.font.Font(font_bold_path,  50)  # Wykonawca
+    font_artist = pygame.font.Font(font_bold_path,  50)
     font_album  = pygame.font.Font(font_regular_path, 36)
     font_title  = pygame.font.Font(font_regular_path, 50)
 
-    # Funkcja ładująca .svg → .png → surface
     def load_svg_button(filename, width=158, height=158):
         full_path = os.path.join(BASE_DIR, "assets", "icons", filename)
         if not os.path.exists(full_path):
@@ -73,13 +60,11 @@ def run_player_screen(screen, test_mode=False):
             pygame.draw.rect(surf, (255,0,0), (0,0,width,height), 5)
             return surf
 
-    # Ładujemy ikony
     btn_prev_icon  = load_svg_button("btn_prev.svg")
     btn_next_icon  = load_svg_button("btn_next.svg")
     btn_play_icon  = load_svg_button("btn_play.svg")
     btn_pause_icon = load_svg_button("btn_pause.svg")
 
-    # Rozmieszczenie przycisków
     btn_size = 158
     gap      = 40
     total_w  = btn_size*3 + gap*2
@@ -90,70 +75,53 @@ def run_player_screen(screen, test_mode=False):
     rect_play = pygame.Rect(start_x+btn_size+gap,  base_y, btn_size, btn_size)
     rect_next = pygame.Rect(start_x+2*(btn_size+gap), base_y, btn_size, btn_size)
 
-    # Domyślna okładka
     default_cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
 
-    # Sterowanie odtwarzaniem (dla testu)
     is_playing = True
     def current_play_button():
         return btn_pause_icon if is_playing else btn_play_icon
 
-    # Parametry pierścienia
     RING_WIDTH  = 16
     RING_RADIUS = 380
 
-    # Postęp testowy – docelowo można wczytywać z metadanych 'prgr'
-    track_progress = 0.3
-
-    # Obsługa gestów
     start_y = None
-    # W trybie normalnym – finger swipe up => clock
-    # W trybie test – scroll up => clock
 
     current_title = "Unknown Track"
     current_artist = "Unknown Artist"
     current_album = "Unknown Album"
-    current_cover = os.path.join(BASE_DIR, "assets", "images", "cover.png")
+    current_cover = default_cover_path
     last_metadata = (None, None, None, None)
 
     while running:
-        # Aktualizacja metadanych z Shairport
+        # Metadane Shairport
         title, artist, album, cover_path = get_current_track_info_shairport()
         if (title, artist, album, cover_path) != last_metadata:
-            print(f'[DEBUG] track info: {title}, {artist}, {album}, {cover_path}')
-            if title:  current_title = title
-            if artist: current_artist = artist
-            if album:  current_album = album
+            print(f"[DEBUG] track info: {title}, {artist}, {album}, {cover_path}")
+            if title: current_title = title.strip('". ')
+            if artist: current_artist = artist.strip('". ')
+            if album: current_album = album.strip('". ')
             if cover_path and os.path.exists(cover_path):
-                current_cover = cover_path
+                current_cover = cover_path.strip('". ')
             last_metadata = (title, artist, album, cover_path)
 
-        # Zdarzenia
         for event in pygame.event.get():
-            #print("[player debug] event:", event)
-
             if event.type == pygame.QUIT:
                 running = False
-
             if test_mode:
-                # scroll w górę => powrót do clock
                 if event.type == pygame.MOUSEWHEEL and event.y > 0:
                     pygame.event.clear()
                     return "clock"
             else:
-                # dotyk: swipe up => clock
                 if event.type == pygame.FINGERDOWN:
                     start_y = event.y
                 elif event.type == pygame.FINGERUP and start_y is not None:
                     end_y = event.y
                     delta_y = start_y - end_y
-                    if delta_y > 0.25:  # ~25% okna
+                    if delta_y > 0.25:
                         pygame.event.clear()
                         return "clock"
                     start_y = None
-
             if event.type == pygame.MOUSEBUTTONUP:
-                # Wersja testowa: klik w przyciski
                 mx, my = event.pos
                 if rect_prev.collidepoint(mx, my):
                     print("[player] Prev pressed!")
@@ -163,15 +131,11 @@ def run_player_screen(screen, test_mode=False):
                 elif rect_next.collidepoint(mx, my):
                     print("[player] Next pressed!")
 
-        # Rysowanie tła
         screen.fill(BLACK)
-
-        # Okładka z 50% overlay
         try:
             cover_img = pygame.image.load(current_cover).convert()
             cover_img = pygame.transform.smoothscale(cover_img, (WIDTH, HEIGHT))
             cover_surf = cover_img.copy()
-
             overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             overlay.fill(SEMI_BLACK)
             cover_surf.blit(overlay, (0,0))
@@ -179,13 +143,10 @@ def run_player_screen(screen, test_mode=False):
         except:
             pass
 
-        # Pierścień postępu (arc)
         ring_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         color_ring = (255, 255, 255, 128)
-
         start_angle = -90
-        end_angle   = start_angle + 360 * track_progress
-
+        end_angle   = start_angle + 360 * 0.3
         rect_arc = (
             CENTER_X - RING_RADIUS,
             CENTER_Y - RING_RADIUS,
@@ -202,11 +163,6 @@ def run_player_screen(screen, test_mode=False):
         )
         screen.blit(ring_surf, (0,0))
 
-        # Teksty
-        # W/g Twojego layoutu:
-        # - artist ~ y=center-175
-        # - album  ~ y=center-120
-        # - title  ~ y=center+120
         performer_surf = font_artist.render(current_artist, True, WHITE)
         album_surf     = font_album.render(current_album.upper(), True, WHITE)
         title_surf     = font_title.render(current_title, True, WHITE)
@@ -215,7 +171,6 @@ def run_player_screen(screen, test_mode=False):
         screen.blit(album_surf,     album_surf.get_rect(center=(CENTER_X, CENTER_Y-120)))
         screen.blit(title_surf,     title_surf.get_rect(center=(CENTER_X, CENTER_Y+120)))
 
-        # Przyciski
         screen.blit(btn_prev_icon,         rect_prev)
         screen.blit(current_play_button(), rect_play)
         screen.blit(btn_next_icon,         rect_next)
