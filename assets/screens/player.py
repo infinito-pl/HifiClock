@@ -16,6 +16,8 @@ except ImportError:
     def get_current_track_info_shairport():
         return (None, None, None, None)
 
+last_metadata = (None, None, None, None)
+
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 def run_player_screen(screen, test_mode=False):
@@ -119,7 +121,12 @@ def run_player_screen(screen, test_mode=False):
         # Próba wczytania NOWYCH metadanych z Shairport
         # (funkcja jest nieblokująca – jeśli nic nie ma, zwróci None'y)
         title, artist, album, cover_path = get_current_track_info_shairport()
-        #print("[DEBUG] track info:", title, artist, album, cover_path)
+        print("[DEBUG] track info:", title, artist, album, cover_path)
+        if (title, artist, album, cover_path) == last_metadata:
+            title = artist = album = cover_path = None
+        else:
+            last_metadata = (title, artist, album, cover_path)
+
         if title or artist or album or cover_path:
             # cokolwiek != None => aktualizujemy
             if title:       current_title  = title
