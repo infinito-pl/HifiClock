@@ -109,12 +109,12 @@ def run_player_screen(screen, test_mode=False):
     # W trybie normalnym – finger swipe up => clock
     # W trybie test – scroll up => clock
 
-    last_metadata = (None, None, None, None)
-
     current_title  = "Unknown Track"
     current_artist = "Unknown Artist"
     current_album  = "Unknown Album"
     current_cover  = default_cover_path
+
+    last_metadata = (None, None, None, None)
 
     while running:
         # Próba wczytania NOWYCH metadanych z Shairport
@@ -122,7 +122,10 @@ def run_player_screen(screen, test_mode=False):
         title, artist, album, cover_path = get_current_track_info_shairport()
         print("[DEBUG] track info:", title, artist, album, cover_path)
         if (title, artist, album, cover_path) == last_metadata:
-            title = artist = album = cover_path = None
+            title = current_title
+            artist = current_artist
+            album = current_album
+            cover_path = current_cover
         else:
             last_metadata = (title, artist, album, cover_path)
 
