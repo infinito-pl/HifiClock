@@ -32,17 +32,15 @@ def start_metadata_listener():
     _listener_started = True
 
     def listener():
-        with open(PIPE_PATH, 'r') as pipe:
-            with subprocess.Popen(
-                ["/usr/local/bin/shairport-sync-metadata-reader"],
-                stdin=pipe,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                text=True,
-                bufsize=1
-            ) as proc:
-                for line in proc.stdout:
-                    _metadata_queue.put(line.strip())
+        with subprocess.Popen(
+            ["/usr/local/bin/shairport-sync-metadata-reader", PIPE_PATH],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            bufsize=1
+        ) as proc:
+            for line in proc.stdout:
+                _metadata_queue.put(line.strip())
 
     _metadata_thread = threading.Thread(target=listener, daemon=True)
     _metadata_thread.start()
