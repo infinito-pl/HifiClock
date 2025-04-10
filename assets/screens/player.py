@@ -5,7 +5,15 @@ import time
 import pygame
 import cairosvg
 import io
+import logging
 from services.shairport_listener import read_shairport_metadata, active_state
+
+# Konfiguracja logowania
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+)
+logger = logging.getLogger(__name__)
 
 try:
     from services.shairport_listener import get_current_track_info_shairport
@@ -113,6 +121,7 @@ def run_player_screen(screen, test_mode=False):
             screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
 
         # Renderowanie ikony play/pause
+        logger.debug(f"Active state: {active_state}")
         if active_state:
             screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
         else:
