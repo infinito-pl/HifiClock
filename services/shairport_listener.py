@@ -28,8 +28,12 @@ def update_shairport_metadata():
                 proc.kill()
                 output, _ = proc.communicate()
 
-        if not output or all(key not in output for key in ["Title:", "Artist:", "Album Name:", "Picture received"]):
-            print("[DEBUG] No metadata output; returning last known values.")
+        if not output:
+            print("[DEBUG] Brak danych z readera po 0.5s.")
+            return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
+
+        if all(key not in output for key in ["Title:", "Artist:", "Album Name:", "Picture received"]):
+            print("[DEBUG] Pusty output bez metadanych — ignoruję.")
             return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
 
         current = _last.copy()
