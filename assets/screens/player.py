@@ -18,6 +18,13 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 def truncate_text(text, max_length=30):
     return text if len(text) <= max_length else text[:max_length - 3] + "..."
 
+# Zdefiniuj funkcję do ładowania i rysowania SVG
+def load_and_render_svg(file_path, width, height):
+    svg_data = cairosvg.svg2png(url=file_path)
+    icon_image = pygame.image.load(io.BytesIO(svg_data))
+    icon_image = pygame.transform.scale(icon_image, (width, height))
+    return icon_image
+
 def run_player_screen(screen, test_mode=False):
     WIDTH, HEIGHT = 800, 800
     CENTER_X = WIDTH // 2
@@ -45,6 +52,12 @@ def run_player_screen(screen, test_mode=False):
     font_artist = pygame.font.Font(font_bold_path, 50)
     font_album  = pygame.font.Font(font_regular_path, 30)
     font_title  = pygame.font.Font(font_regular_path, 50)
+
+    # Załaduj ikony play/pause
+    play_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_play.svg"), 158, 158)
+    pause_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_pause.svg"), 158, 158)
+    
+    is_playing = False  # Zmienna do kontrolowania stanu odtwarzania
 
     while running:
         for event in pygame.event.get():
@@ -95,6 +108,12 @@ def run_player_screen(screen, test_mode=False):
         if title:
             title_surface = font_title.render(title, True, WHITE)
             screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
+
+        # Renderowanie ikony play/pause
+        if is_playing:
+            screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
+        else:
+            screen.blit(play_icon, (CENTER_X - play_icon.get_width() // 2, CENTER_Y - play_icon.get_height() // 2))
 
         pygame.display.flip()
         clock.tick(30)
