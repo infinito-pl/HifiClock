@@ -98,13 +98,13 @@ def read_shairport_metadata():
                 active_state = True
                 should_switch_to_player = True
                 should_switch_to_clock = False
-                logger.info("Shairport entered active state")
+                logger.debug("Shairport entered active state")
 
             elif "Exit Active State" in line:
                 active_state = False
                 should_switch_to_player = False
                 should_switch_to_clock = True
-                logger.info("Shairport exited active state")
+                logger.debug("Shairport exited active state")
 
             # Continuously fetch metadata when active
             if active_state:
