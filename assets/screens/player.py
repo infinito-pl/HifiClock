@@ -7,6 +7,7 @@ import time
 import pygame
 import cairosvg
 import io
+from services.metadata_shairport import get_current_track_info_shairport, get_current_progress_shairport
 
 # Ładowanie modułu do metadanych Shairport. 
 # Jeśli nie istnieje, po prostu mamy fallback (None, None, None, None).
@@ -102,7 +103,7 @@ def run_player_screen(screen, test_mode=False):
     RING_RADIUS = 380
 
     # Postęp testowy – docelowo można wczytywać z metadanych 'prgr'
-    track_progress = 0.3
+    track_progress = 0.0
 
     # Obsługa gestów
     start_y = None
@@ -120,22 +121,19 @@ def run_player_screen(screen, test_mode=False):
         # Próba wczytania NOWYCH metadanych z Shairport
         # (funkcja jest nieblokująca – jeśli nic nie ma, zwróci None'y)
         title, artist, album, cover_path = get_current_track_info_shairport()
-        print("[DEBUG] track info:", title, artist, album, cover_path)
-        if (title, artist, album, cover_path) == last_metadata:
-            title = current_title
-            artist = current_artist
-            album = current_album
-            cover_path = current_cover
-        else:
-            last_metadata = (title, artist, album, cover_path)
-
-        if title or artist or album or cover_path:
-            # cokolwiek != None => aktualizujemy
-            if title:       current_title  = title
-            if artist:      current_artist = artist
-            if album:       current_album  = album
-            if cover_path and os.path.exists(cover_path):
-                current_cover = cover_path
+        progress = get_current_progress_shairport()
+        if progress is not None:
+            track_progress = progress
+        print(f'[DEBUG] track info: "{title}". "{artist}". "{album}". "{cover_path}".')
+        
+        if any([title, artist, album, cover_path]):
+            if (title, artist, album, cover_path) != last_metadata:
+                if title:       current_title  = title
+                if artist:      current_artist = artist
+                if album:       current_album  = album
+                if cover_path and os.path.exists(cover_path):
+                    current_cover = cover_path
+                last_metadata = (title, artist, album, cover_path)
 
         # Zdarzenia
         for event in pygame.event.get():
