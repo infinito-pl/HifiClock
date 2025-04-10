@@ -1,10 +1,8 @@
 # player.py
 import pygame
 import os
-
 from services.shairport_listener import current_metadata
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 def truncate_text(text, max_length=30):
     return text if len(text) <= max_length else text[:max_length - 3] + "..."
 
@@ -57,6 +55,9 @@ def run_player_screen(screen, test_mode=False):
         artist = current_metadata['artist'] or " "
         album = current_metadata['album'] or "Loading..."
         cover_path = current_metadata['cover_path']
+
+        # Logowanie danych w player.py
+        print(f"[DEBUG] Player screen metadata: title={title}, artist={artist}, album={album}, cover={cover_path}")
 
         if not cover_path or not os.path.isfile(cover_path):
             cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")

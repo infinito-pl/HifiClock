@@ -13,6 +13,7 @@ current_metadata = {
 
 def update_metadata(title, artist, album, cover_path):
     """Aktualizuje metadane w globalnej zmiennej"""
+    print(f"[DEBUG] Updating metadata: {title}, {artist}, {album}, {cover_path}")  # Dodano logowanie
     current_metadata['title'] = title
     current_metadata['artist'] = artist
     current_metadata['album'] = album
