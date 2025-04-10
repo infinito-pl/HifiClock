@@ -67,7 +67,7 @@ def run_player_screen(screen, test_mode=False):
         if not any([title, artist, album]):
             title = " "
             artist = " "
-            album = "Loading..."
+            album = " "
         if not cover_path or not os.path.isfile(cover_path):
             cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
 
