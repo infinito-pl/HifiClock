@@ -65,9 +65,9 @@ def run_player_screen(screen, test_mode=False):
         title, artist, album, cover_path = get_current_track_info_shairport()
         
         if not any([title, artist, album]):
-            title = "Untitled"
-            artist = "No artist"
-            album = "No album"
+            title = "---"
+            artist = "---"
+            album = "---"
         if not cover_path or not os.path.isfile(cover_path):
             cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
 
