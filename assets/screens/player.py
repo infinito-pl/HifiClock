@@ -45,7 +45,6 @@ def run_player_screen(screen, test_mode=False):
 
         screen.fill(BLACK)
 
-        title, artist, album, cover_path, updated = get_current_track_info_shairport()
         title, artist, album, cover_path = get_current_track_info_shairport()
         updated = True  # lub True/False – w zależności co chcesz dalej z tym zrobić
 
