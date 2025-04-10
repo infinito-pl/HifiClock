@@ -149,18 +149,21 @@ def read_shairport_metadata():
 
             for line in proc.stdout:
                 line = line.strip()
+                logger.debug(f"Processing line: {line}")
 
                 if "Enter Active State" in line or "Play -- first frame received" in line or "Resume" in line:
+                    logger.debug("Detected play/resume event")
                     active_state = True
-                    logger.debug(f"Active state (listener): {active_state}")
+                    logger.debug(f"Setting active_state to {active_state}")
                     should_switch_to_player = True
                     should_switch_to_clock = False
                     save_state()
                     logger.debug("Shairport entered active state")
 
                 elif "Exit Active State" in line or "Pause" in line or "Stop" in line:
+                    logger.debug("Detected pause/stop event")
                     active_state = False
-                    logger.debug(f"Active state (listener): {active_state}")
+                    logger.debug(f"Setting active_state to {active_state}")
                     should_switch_to_player = False
                     should_switch_to_clock = True
                     save_state()
@@ -168,6 +171,7 @@ def read_shairport_metadata():
 
                 # Regularly fetch metadata when active
                 if active_state:
+                    logger.debug("Active state is True, fetching metadata")
                     title, artist, album, cover_path = get_current_track_info_shairport()
                     if title != last_title or artist != last_artist or album != last_album:
                         last_title, last_artist, last_album, last_cover = title, artist, album, cover_path
