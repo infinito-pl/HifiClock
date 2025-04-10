@@ -34,8 +34,8 @@ def update_shairport_metadata():
                 proc.kill()
                 output, _ = proc.communicate()
 
-        print("[DEBUG] raw output:")
-        print(output)
+        # print("[DEBUG] raw output:")
+        # print(output)
         updated = False
 
         if not output:
@@ -46,13 +46,13 @@ def update_shairport_metadata():
             line = line.strip()
             print("[DEBUG] LINE:", line)
             if line.startswith("Album Name:"):
-                _last["album"] = line.replace("Album Name:", "").strip().strip('"').strip()
+                _last["album"] = line.replace("Album Name:", "").strip().strip('"').strip(". ")
                 updated = True
             elif line.startswith("Artist:"):
-                _last["artist"] = line.replace("Artist:", "").strip().strip('"').strip()
+                _last["artist"] = line.replace("Artist:", "").strip().strip('"').strip(". ")
                 updated = True
             elif line.startswith("Title:"):
-                _last["title"] = line.replace("Title:", "").strip().strip('"').strip()
+                _last["title"] = line.replace("Title:", "").strip().strip('"').strip(". ")
                 updated = True
             elif line.startswith("Picture received"):
                 match = re.search(r"length (\d+) bytes", line)
@@ -60,7 +60,13 @@ def update_shairport_metadata():
                     with open(TMP_COVER, "wb") as f:
                         f.write(b"")  # Placeholder; actual writing must be handled via chunk parsing if needed
                     _last["cover_path"] = TMP_COVER
+                    print(f"[DEBUG] Cover image written to {_last['cover_path']}")
                     updated = True
+
+        if updated:
+            print(f"[DEBUG] Parsed Metadata — Title: {_last['title']}, Artist: {_last['artist']}, Album: {_last['album']}, Cover: {_last['cover_path']}")
+        else:
+            print("[DEBUG] Metadata not updated.")
 
         return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], updated)
 
