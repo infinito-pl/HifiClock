@@ -7,7 +7,7 @@ import time
 import pygame
 import cairosvg
 import io
-from services.metadata_shairport import get_current_track_info_shairport
+from services.shairport_listener import update_shairport_metadata
 
 # Ładowanie modułu do metadanych Shairport. 
 # Jeśli nie istnieje, po prostu mamy fallback (None, None, None, None).
@@ -121,22 +121,21 @@ def run_player_screen(screen, test_mode=False):
                     print("[player] Next pressed!")
 
         # Metadane Shairport
-        title, artist, album, cover_path = get_current_track_info_shairport()
-        if title: current_title = title.strip('"')
-        if artist: current_artist = artist.strip('"')
-        if album: current_album = album.strip('"')
-        if cover_path and os.path.exists(cover_path):
-            current_cover = cover_path
-            no_metadata_count = 0
+        title, artist, album, cover_path, updated = update_shairport_metadata()
+        if updated:
+            current_title = title or "Unknown Track"
+            current_artist = artist or "Unknown Artist"
+            current_album = album or "Unknown Album"
+            if cover_path and os.path.exists(cover_path):
+                current_cover = cover_path
+                no_metadata_count = 0
         else:
-            current_cover = default_cover_path
             no_metadata_count += 1
-        
-        if no_metadata_count >= 5:
-            current_title = "Unknown Track"
-            current_artist = "Unknown Artist"
-            current_album = "Unknown Album"
-            current_cover = default_cover_path
+            if no_metadata_count >= 5:
+                current_title = "Unknown Track"
+                current_artist = "Unknown Artist"
+                current_album = "Unknown Album"
+                current_cover = default_cover_path
 
         screen.fill(BLACK)
         try:
