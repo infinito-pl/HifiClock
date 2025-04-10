@@ -116,19 +116,18 @@ def run_player_screen(screen, test_mode=False):
     current_cover = os.path.join(BASE_DIR, "assets", "images", "cover.png")
     last_metadata = (None, None, None, None)
 
-    # Próba wczytania NOWYCH metadanych z Shairport
-    title, artist, album, cover_path = get_current_track_info_shairport()
-    print(f'[DEBUG] track info: {title}, {artist}, {album}, {cover_path}')
-    
-    if any([title, artist, album, cover_path]):
-        current_title  = title or current_title
-        current_artist = artist or current_artist
-        current_album  = album or current_album
-        if cover_path and os.path.exists(cover_path):
-            current_cover = cover_path
-        last_metadata = (title, artist, album, cover_path)
-
     while running:
+        # Aktualizacja metadanych z Shairport
+        title, artist, album, cover_path = get_current_track_info_shairport()
+        if (title, artist, album, cover_path) != last_metadata:
+            print(f'[DEBUG] track info: {title}, {artist}, {album}, {cover_path}')
+            if title:  current_title = title
+            if artist: current_artist = artist
+            if album:  current_album = album
+            if cover_path and os.path.exists(cover_path):
+                current_cover = cover_path
+            last_metadata = (title, artist, album, cover_path)
+
         # Zdarzenia
         for event in pygame.event.get():
             #print("[player debug] event:", event)
