@@ -49,6 +49,11 @@ def update_shairport_metadata():
 
         updated = current != _last
 
+        # Zabezpieczenie przed cofnięciem do Unknown, jeśli tylko chwilowo brak outputu
+        if not any(current.values()) and any(_last.values()):
+            print("[DEBUG] Zignorowano pusty zestaw metadanych.")
+            return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
+
         # Ignoruj zmianę jeśli tylko cover_path przełączyło się na None
         if updated and current["cover_path"] is None and _last["cover_path"] and all(
             current[k] == _last[k] for k in ("title", "artist", "album")
