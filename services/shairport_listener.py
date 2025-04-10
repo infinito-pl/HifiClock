@@ -24,7 +24,7 @@ def get_current_track_info_shairport():
     global last_title, last_artist, last_album, last_cover
 
     title = artist = album = cover_path = None
-     logger.debug("Starting to fetch track info from shairport-sync-metadata-reader.")
+    logger.debug("Starting to fetch track info from shairport-sync-metadata-reader.")
 
     try:
         proc = subprocess.Popen(
