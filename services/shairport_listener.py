@@ -1,6 +1,7 @@
 import subprocess
 import re
 from collections import defaultdict
+import time
 
 PIPE_PATH = "/tmp/shairport-sync-metadata"
 READER_BIN = "/usr/local/bin/shairport-sync-metadata-reader"
@@ -26,13 +27,21 @@ def read_shairport_metadata():
             stderr=subprocess.DEVNULL,
             text=True
         ) as proc:
-            for line in proc.stdout:
+            start_time = time.time()
+            timeout = 1.5  # sekundy
+            while time.time() - start_time < timeout:
+                line = proc.stdout.readline()
+                if not line:
+                    if proc.poll() is not None:
+                        break
+                    continue
                 line = line.strip()
                 key, value = parse_metadata_line(line)
                 if key:
                     metadata[key.lower()] = value
                 if key == "title":
-                    break  # zakończ po otrzymaniu tytułu — zakładamy, że dane są kompletne
+                    break
+            proc.terminate()
     except FileNotFoundError:
         print(f"[ERROR] Nie znaleziono {READER_BIN}")
     except Exception as e:
@@ -47,5 +56,5 @@ def read_shairport_metadata():
 
 if __name__ == "__main__":
     print("[DEBUG] Czytam metadane z Shairport Sync...")
-    data = read_metadata()
+    data = read_shairport_metadata()
     print("[DEBUG] Odczytane metadane:", data)
