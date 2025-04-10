@@ -2,6 +2,7 @@ import subprocess
 import re
 import tempfile
 import os
+import time
 
 PIPE_PATH = "/tmp/shairport-sync-metadata"
 TMP_COVER = "/tmp/cover.jpg"
@@ -12,6 +13,9 @@ _last = {
     "album": None,
     "cover_path": None,
 }
+
+last_metadata_update = 0
+metadata_refresh_interval = 2  # seconds
 
 def update_shairport_metadata():
     try:
