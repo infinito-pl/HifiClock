@@ -30,6 +30,8 @@ def update_shairport_metadata():
             text=True,
         )
         output = proc.stdout
+        print("[DEBUG] raw output:")
+        print(output)
         updated = False
 
         if not output:
@@ -37,6 +39,7 @@ def update_shairport_metadata():
 
         for line in output.splitlines():
             line = line.strip()
+            print("[DEBUG] LINE:", line)
             if line.startswith("Album Name:"):
                 _last["album"] = line.replace("Album Name:", "").strip()
                 updated = True
