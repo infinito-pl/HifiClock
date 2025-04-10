@@ -1,19 +1,17 @@
 def read_shairport_metadata():
-    global last_title, last_artist, last_album, last_cover
+    global last_title, last_artist, last_album, last_cover, active_state
 
     try:
         proc = subprocess.Popen(
-            ["shairport-sync-metadata-reader", "--raw", "/tmp/shairport-sync-metadata"],
+            ["/usr/local/bin/shairport-sync-metadata-reader"],
+            stdin=open("/tmp/shairport-sync-metadata", "rb"),
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            universal_newlines=True
+            text=True,
+            bufsize=1
         )
 
-        title = None
-        artist = None
-        album = None
-        cover_path = None
-
+        title = artist = album = cover_path = None
         start_time = time.time()
 
         while True:
@@ -23,33 +21,29 @@ def read_shairport_metadata():
 
             line = line.strip()
 
-            if line.startswith("Title:"):
-                title = clean_value(line.replace("Title:", ""))
-            elif line.startswith("Artist:"):
-                artist = clean_value(line.replace("Artist:", ""))
-            elif line.startswith("Album Name:"):
-                album = clean_value(line.replace("Album Name:", ""))
-            elif "Picture received, length" in line:
-                try:
-                    files = sorted(os.listdir(COVER_ART_PATH), key=lambda x: os.path.getmtime(os.path.join(COVER_ART_PATH, x)), reverse=True)
-                    if files:
-                        cover_path = os.path.join(COVER_ART_PATH, files[0])
-                except:
-                    pass
+            if "[DEBUG] Enter Active State" in line:
+                active_state = True
+                print("[DEBUG] Entered Active State. Start reading metadata.")
+                continue
+            elif "[DEBUG] Exit Active State" in line:
+                active_state = False
+                print("[DEBUG] Exit Active State. Stopping metadata reading.")
+                return last_title, last_artist, last_album, last_cover, False
 
-            if title and artist and album:
-                updated = (title != last_title or artist != last_artist or album != last_album or cover_path != last_cover)
-                last_title = title
-                last_artist = artist
-                last_album = album
-                last_cover = cover_path
-                return title, artist, album, cover_path, updated
+                # Jeśli metadane się zmieniły, zaktualizuj
+                if title != last_title or artist != last_artist or album != last_album or cover_path != last_cover:
+                    last_title = title
+                    last_artist = artist
+                    last_album = album
+                    last_cover = cover_path
+                    return title, artist, album, cover_path, True
 
-            if time.time() - start_time > 10:
+            # Jeśli nie otrzymamy nowych danych przez 1 sekundę, zakończ odczyt
+            if time.time() - start_time > 1.0:
                 break
 
         return last_title, last_artist, last_album, last_cover, False
 
     except Exception as e:
-        print("[shairport_listener] Błąd:", e)
+        print(f"[DEBUG] Failed to run reader: {e}")
         return last_title, last_artist, last_album, last_cover, False
