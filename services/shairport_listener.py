@@ -34,8 +34,6 @@ def update_shairport_metadata():
                 proc.kill()
                 output, _ = proc.communicate()
 
-        # print("[DEBUG] raw output:")
-        # print(output)
         updated = False
 
         if not output:
@@ -44,7 +42,6 @@ def update_shairport_metadata():
 
         for line in output.splitlines():
             line = line.strip()
-            print("[DEBUG] LINE:", line)
             if line.startswith("Album Name:"):
                 _last["album"] = line.replace("Album Name:", "").strip().strip('"').strip(". ")
                 updated = True
@@ -60,7 +57,6 @@ def update_shairport_metadata():
                     with open(TMP_COVER, "wb") as f:
                         f.write(b"")  # Placeholder; actual writing must be handled via chunk parsing if needed
                     _last["cover_path"] = TMP_COVER
-                    print(f"[DEBUG] Cover image written to {_last['cover_path']}")
                     updated = True
 
         if updated:
@@ -71,6 +67,5 @@ def update_shairport_metadata():
         return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], updated)
 
     except Exception as e:
-        # Uncomment for debugging:
-        # print("[DEBUG] Error reading metadata:", e)
+        print(f"[DEBUG] Error reading metadata: {e}")
         return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
