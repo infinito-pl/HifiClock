@@ -38,15 +38,20 @@ def get_current_track_info_shairport():
         start_time = time.time()
         for line in proc.stdout:
             line = line.strip()
+            logger.debug(f"Received line: {line}")
 
             if line.startswith("Title:"):
                 title = line.split(': "', 1)[1].strip('".')
+                logger.debug(f"Extracted Title: {title}")
             elif line.startswith("Artist:"):
                 artist = line.split(': "', 1)[1].strip('".')
+                logger.debug(f"Extracted Artist: {artist}")
             elif line.startswith("Album Name:"):
                 album = line.split(': "', 1)[1].strip('".')
+                logger.debug(f"Extracted Album: {album}")
             elif "Picture received" in line and "length" in line:
                 cover_path = "/tmp/shairport-sync/.cache/coverart/last_cover.png"
+                logger.debug(f"Cover path set to: {cover_path}")
 
             if time.time() - start_time > 1.0:  # Timeout for metadata retrieval
                 break
