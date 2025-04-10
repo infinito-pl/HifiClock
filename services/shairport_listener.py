@@ -5,6 +5,9 @@ import os
 import time
 import threading
 from queue import Queue, Empty
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 PIPE_PATH = "/tmp/shairport-sync-metadata"
 TMP_COVER = "/tmp/cover.jpg"
@@ -32,16 +35,21 @@ def start_metadata_listener():
     _listener_started = True
 
     def listener():
-        with subprocess.Popen(
-            ["/usr/local/bin/shairport-sync-metadata-reader", PIPE_PATH],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            bufsize=1
-        ) as proc:
-            for line in proc.stdout:
-                _metadata_queue.put(line.strip())
-
+        while True:
+            try:
+                with subprocess.Popen(
+                    ["/usr/local/bin/shairport-sync-metadata-reader", PIPE_PATH],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1
+                ) as proc:
+                    for line in proc.stdout:
+                        if line.strip():
+                            _metadata_queue.put(line.strip())
+            except Exception as e:
+                print(f"[ERROR] Nie można uruchomić readera: {e}")
+                time.sleep(2)
     _metadata_thread = threading.Thread(target=listener, daemon=True)
     _metadata_thread.start()
 
