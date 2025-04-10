@@ -4,7 +4,6 @@ import pygame
 import threading
 from assets.screens.clock import run_clock_screen
 from assets.screens.player import run_player_screen
-from services.shairport_listener import read_shairport_metadata, get_current_track_info_shairport
 
 should_switch_to_player = False  # Flaga do przełączania na ekran player
 should_switch_to_clock = False   # Flaga do przełączania na ekran zegara
@@ -14,11 +13,10 @@ def load_metadata():
     title, artist, album, cover_path = get_current_track_info_shairport()
     return title, artist, album, cover_path
 
-def start_shairport_listener():
-    """Uruchamia listener Shairport w osobnym wątku."""
-    listener_thread = threading.Thread(target=read_shairport_metadata, daemon=True)
-    listener_thread.start()
-    return listener_thread
+def get_current_track_info_shairport():
+    # Mock function to emulate getting track info from Shairport
+    # Replace this with actual implementation
+    return None, None, None, None
 
 def main():
     global should_switch_to_player, should_switch_to_clock
@@ -33,10 +31,6 @@ def main():
         screen = pygame.display.set_mode((800, 800), pygame.FULLSCREEN)
 
     print("Current SDL driver:", pygame.display.get_driver())
-
-    # Uruchom listener Shairport w osobnym wątku
-    listener_thread = start_shairport_listener()
-    print("Shairport listener started in background thread")
 
     current_screen = "clock"
     last_playing_status = None  # Zmienna do monitorowania stanu odtwarzania
