@@ -16,7 +16,7 @@ except ImportError:
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 def run_player_screen(screen, test_mode=False):
-    WIDTH, HEIGHT = 800, 600
+    WIDTH, HEIGHT = 800, 800
     CENTER_X = WIDTH // 2
     CENTER_Y = HEIGHT // 2
 
@@ -52,25 +52,24 @@ def run_player_screen(screen, test_mode=False):
             title = "Untitled"
             artist = "No artist"
             album = "No album"
-        if not cover_path:
+        if not cover_path or not os.path.isfile(cover_path):
             cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
 
-        if cover_path:
-            cover_image = pygame.image.load(cover_path)
-            cover_image = pygame.transform.scale(cover_image, (150, 150))
-            screen.blit(cover_image, (CENTER_X - 75, 50))
+        cover_image = pygame.image.load(cover_path)
+        cover_image = pygame.transform.scale(cover_image, (WIDTH, HEIGHT))
+        screen.blit(cover_image, (0, 0))
 
         if title:
             text_surface = font_bold.render(title, True, WHITE)
-            screen.blit(text_surface, (CENTER_X - text_surface.get_width() // 2, 220))
+            screen.blit(text_surface, (CENTER_X - text_surface.get_width() // 2, CENTER_Y - 60))
 
         if artist:
             text_surface = font_regular.render(artist, True, WHITE)
-            screen.blit(text_surface, (CENTER_X - text_surface.get_width() // 2, 260))
+            screen.blit(text_surface, (CENTER_X - text_surface.get_width() // 2, CENTER_Y - 20))
 
         if album:
             text_surface = font_regular.render(album, True, WHITE)
-            screen.blit(text_surface, (CENTER_X - text_surface.get_width() // 2, 300))
+            screen.blit(text_surface, (CENTER_X - text_surface.get_width() // 2, CENTER_Y + 20))
 
         pygame.display.flip()
         clock.tick(30)
