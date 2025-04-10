@@ -33,6 +33,8 @@ def update_shairport_metadata():
                 output, _ = proc.communicate()
 
         if not output:
+            # Do not clear metadata if no output received
+            print("[DEBUG] No metadata output; returning last known values.")
             return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], False)
 
         current = _last.copy()
@@ -55,7 +57,8 @@ def update_shairport_metadata():
             _last.update(current)
             print(f"[DEBUG] Nowe metadane: '{_last['title']}' — {_last['artist']} / {_last['album']} / {_last['cover_path']}")
         else:
-            print("[DEBUG] Metadata not updated.")
+            # Reprint current known values for debug clarity
+            print(f"[DEBUG] Metadata still current: '{_last['title']}' — {_last['artist']} / {_last['album']} / {_last['cover_path']}")
 
         return (_last["title"], _last["artist"], _last["album"], _last["cover_path"], updated)
 
