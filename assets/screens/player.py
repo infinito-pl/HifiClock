@@ -6,7 +6,8 @@ import pygame
 import cairosvg
 import io
 import logging
-from services.shairport_listener import read_shairport_metadata, active_state
+import json
+from services.shairport_listener import read_shairport_metadata
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -14,6 +15,16 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
 )
 logger = logging.getLogger(__name__)
+
+STATE_FILE = "/tmp/shairport_state.json"
+
+def get_active_state():
+    try:
+        with open(STATE_FILE, 'r') as f:
+            state = json.load(f)
+            return state.get("active_state", False)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return False
 
 try:
     from services.shairport_listener import get_current_track_info_shairport
@@ -121,8 +132,9 @@ def run_player_screen(screen, test_mode=False):
             screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
 
         # Renderowanie ikony play/pause
-        logger.debug(f"Active state (icon): {active_state}")
-        if active_state:
+        current_active_state = get_active_state()
+        logger.debug(f"Active state (icon): {current_active_state}")
+        if current_active_state:
             screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
         else:
             screen.blit(play_icon, (CENTER_X - play_icon.get_width() // 2, CENTER_Y - play_icon.get_height() // 2))

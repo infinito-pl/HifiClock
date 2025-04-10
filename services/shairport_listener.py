@@ -2,6 +2,7 @@ import os
 import subprocess
 import time
 import logging
+import json
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -18,6 +19,27 @@ should_switch_to_clock = False
 
 PIPE_PATH = "/tmp/shairport-sync-metadata"
 TMP_COVER = "/tmp/cover.jpg"  # or .png, magic number check is done during parsing
+STATE_FILE = "/tmp/shairport_state.json"
+
+def save_state():
+    state = {
+        "active_state": active_state,
+        "should_switch_to_player": should_switch_to_player,
+        "should_switch_to_clock": should_switch_to_clock
+    }
+    with open(STATE_FILE, 'w') as f:
+        json.dump(state, f)
+
+def load_state():
+    global active_state, should_switch_to_player, should_switch_to_clock
+    try:
+        with open(STATE_FILE, 'r') as f:
+            state = json.load(f)
+            active_state = state.get("active_state", False)
+            should_switch_to_player = state.get("should_switch_to_player", False)
+            should_switch_to_clock = state.get("should_switch_to_clock", False)
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
 
 # Funkcja do zarządzania stanem ikony play/pause
 def update_play_pause_icon():
@@ -115,27 +137,29 @@ def read_shairport_metadata():
                     logger.debug(f"Active state (listener): {active_state}")
                     should_switch_to_player = True
                     should_switch_to_clock = False
+                    save_state()
                     logger.debug("Shairport entered active state")
-                   
 
                 elif "Exit Active State" in line:
                     active_state = False
                     logger.debug(f"Active state (listener): {active_state}")
                     should_switch_to_player = False
                     should_switch_to_clock = True
+                    save_state()
                     logger.debug("Shairport exited active state")
-                
 
                 elif "Play -- first frame received" in line:
                     active_state = True
                     logger.debug(f"Active state (Play): {active_state}")
-                    update_play_pause_icon()  # Zaktualizuj ikonę play/pause
+                    save_state()
+                    update_play_pause_icon()
                     logger.debug("Play: First frame received, music is playing.")
 
                 elif "Pause" in line:
                     active_state = False
                     logger.debug(f"Active state (Pause): {active_state}")
-                    update_play_pause_icon()  # Zaktualizuj ikonę play/pause
+                    save_state()
+                    update_play_pause_icon()
                     logger.debug("Pause: Music is paused.")
 
                 # Regularly fetch metadata when active
