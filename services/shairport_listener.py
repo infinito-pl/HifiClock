@@ -134,10 +134,12 @@ def get_current_track_info_shairport():
 def read_shairport_metadata():
     global last_title, last_artist, last_album, last_cover, active_state, should_switch_to_player, should_switch_to_clock
 
+    logger.debug("Starting read_shairport_metadata")
     start_time = time.time()  # Timeout handling
 
     while time.time() - start_time < 5.0:
         try:
+            logger.debug("Opening pipe for reading")
             proc = subprocess.Popen(
                 ["/usr/local/bin/shairport-sync-metadata-reader"],
                 stdin=open(PIPE_PATH, "rb"),
@@ -146,6 +148,7 @@ def read_shairport_metadata():
                 text=True,
                 bufsize=1
             )
+            logger.debug("Pipe opened successfully")
 
             for line in proc.stdout:
                 line = line.strip()
@@ -183,13 +186,16 @@ def read_shairport_metadata():
                     break
 
             proc.terminate()
+            logger.debug("Process terminated")
 
         except Exception as e:
             logger.error(f"Error in reading shairport metadata: {e}")
         time.sleep(3)  # Wait for 3 seconds before the next attempt
+    logger.debug("Exiting read_shairport_metadata")
 
 # Main function to start the listener
 if __name__ == "__main__":
+    logger.debug("Starting shairport listener")
     while True:
         read_shairport_metadata()
         time.sleep(1)
