@@ -7,7 +7,7 @@ import time
 import pygame
 import cairosvg
 import io
-from services.shairport_listener import update_shairport_metadata
+from services.shairport_listener import read_metadata
 
 # Ładowanie modułu do metadanych Shairport. 
 # Jeśli nie istnieje, po prostu mamy fallback (None, None, None, None).
