@@ -121,7 +121,7 @@ def run_player_screen(screen, test_mode=False):
                     print("[player] Next pressed!")
 
         # Metadane Shairport
-        title, artist, album, cover_path, updated = update_shairport_metadata()
+        title, artist, album, cover_path, updated = read_shairport_metadata()
         if updated:
             current_title = title or "Unknown Track"
             current_artist = artist or "Unknown Artist"

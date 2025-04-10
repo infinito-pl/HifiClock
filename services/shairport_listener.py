@@ -16,7 +16,7 @@ def parse_metadata_line(line):
             return 'cover_path', "/tmp/cover.jpg"
     return None, None
 
-def read_metadata():
+def read_shairport_metadata():
     """Czyta metadane ze strumienia i zwraca jako słownik."""
     metadata = defaultdict(lambda: None)
     try:
