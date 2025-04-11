@@ -140,9 +140,14 @@ def get_current_track_info_shairport():
             logger.error(f"Failed to retrieve metadata: {e}")
             return None, None, None, None
 
+    # Jeśli mamy nową okładkę z Shairport, używamy jej
     if cover_path and os.path.isfile(cover_path):
         last_cover = cover_path
-        logger.debug(f"Found cover: {cover_path}")
+        logger.debug(f"Using cover from Shairport: {cover_path}")
+    # Jeśli nie mamy nowej okładki, ale mamy poprzednią z Shairport, używamy jej
+    elif last_cover and os.path.isfile(last_cover) and "shairport-sync" in last_cover:
+        logger.debug(f"Using previous cover from Shairport: {last_cover}")
+    # Jeśli nie mamy okładki z Shairport, próbujemy MusicBrainz
     else:
         last_cover = None
         logger.debug("No cover found from Shairport, trying MusicBrainz")
