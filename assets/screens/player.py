@@ -7,7 +7,12 @@ import cairosvg
 import io
 import logging
 import json
-from services.shairport_listener import read_shairport_metadata, get_current_track_info_shairport
+import tempfile
+import subprocess
+from PIL import Image, ImageDraw
+from services.shairport_listener import get_current_track_info_shairport
+from utils.svg_loader import load_and_render_svg
+from services.shairport_active import get_active_state
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -26,133 +31,238 @@ def get_active_state():
     except (FileNotFoundError, json.JSONDecodeError):
         return False
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+# Ścieżka bazowa projektu
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-def truncate_text(text, max_length=30):
-    return text if len(text) <= max_length else text[:max_length - 3] + "..."
+def truncate_text(text, max_length):
+    """
+    Skraca tekst do określonej długości, dodając '...' jeśli jest zbyt długi.
+    
+    :param text: Tekst do skrócenia
+    :param max_length: Maksymalna długość tekstu
+    :return: Skrócony tekst
+    """
+    if text and len(text) > max_length:
+        return text[:max_length - 3] + '...'
+    return text
 
 # Zdefiniuj funkcję do ładowania i rysowania SVG
-def load_and_render_svg(file_path, width, height):
-    svg_data = cairosvg.svg2png(url=file_path)
-    icon_image = pygame.image.load(io.BytesIO(svg_data))
-    icon_image = pygame.transform.scale(icon_image, (width, height))
-    return icon_image
+def load_and_render_svg(svg_path, width, height):
+    """
+    Ładuje plik SVG i renderuje go do powierzchni Pygame.
+    
+    :param svg_path: Ścieżka do pliku SVG
+    :param width: Szerokość docelowa
+    :param height: Wysokość docelowa
+    :return: Powierzchnia Pygame z wyrenderowanym SVG
+    """
+    try:
+        # Używamy podprocesu do konwersji SVG na PNG
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+            tmp_png_path = tmp_file.name
+        
+        cmd = ['convert', '-background', 'none', '-size', f'{width}x{height}', svg_path, tmp_png_path]
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        # Ładowanie przekonwertowanego pliku PNG
+        image = pygame.image.load(tmp_png_path)
+        os.unlink(tmp_png_path)  # Usunięcie pliku tymczasowego
+        
+        return image
+    except Exception as e:
+        logger.error(f"Błąd podczas ładowania SVG {svg_path}: {e}")
+        # Utworzenie przezroczystej powierzchni z krzyżykiem jako fallback
+        surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        pygame.draw.line(surface, (255, 0, 0), (0, 0), (width, height), 2)
+        pygame.draw.line(surface, (255, 0, 0), (0, height), (width, 0), 2)
+        return surface
+
+# Zmniejszenie częstotliwości sprawdzania aktywności
+ACTIVITY_CHECK_INTERVAL = 60  # Sprawdzanie co 60 sekund zamiast 10
+LAST_ACTIVITY_CHECK = 0
+
+logger = logging.getLogger(__name__)
 
 def run_player_screen(screen, test_mode=False, metadata=None):
-    WIDTH, HEIGHT = 800, 800
-    CENTER_X = WIDTH // 2
-    CENTER_Y = HEIGHT // 2
-
-    SWIPE_THRESHOLD = 0.25
-    start_y = None  # początkowa pozycja swipa
-
-    clock = pygame.time.Clock()
-    running = True
-
-    WHITE      = (255, 255, 255)
-    BLACK      = (0,   0,   0)
-    SEMI_BLACK = (0,   0,   0, 128)
-    BACKGROUND_COLOR = (30, 30, 30)
-
-    font_regular_path = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Regular.ttf")
-    font_bold_path    = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
-
-    if not os.path.isfile(font_regular_path):
-        font_regular_path = pygame.font.get_default_font()
-    if not os.path.isfile(font_bold_path):
-        font_bold_path = pygame.font.get_default_font()
-
-    font_artist = pygame.font.Font(font_bold_path, 50)
-    font_album  = pygame.font.Font(font_regular_path, 30)
-    font_title  = pygame.font.Font(font_regular_path, 50)
-
-    # Załaduj ikony play/pause
-    play_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_play.svg"), 158, 158)
-    pause_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_pause.svg"), 158, 158)
+    """
+    Uruchamia ekran odtwarzacza muzyki.
     
-    is_playing = False  # Zmienna do kontrolowania stanu odtwarzania
-    last_log_time = 0  # Czas ostatniego logu dla active_state
-    LOG_INTERVAL = 5   # Interwał logowania stanu w sekundach
-
+    Args:
+        screen: Powierzchnia pygame do rysowania
+        test_mode: Czy aplikacja jest w trybie testowym
+        metadata: Słownik z metadanymi: title, artist, album, cover_path, is_playing
+        
+    Returns:
+        str: "clock" jeśli użytkownik chce wrócić do ekranu zegara
+        None: jeśli użytkownik chce zamknąć aplikację
+    """
+    global LAST_ACTIVITY_CHECK
+    
+    logger.debug("Uruchamianie ekranu odtwarzacza z metadanymi")
+    
+    # Jeśli nie otrzymaliśmy metadanych, spróbujmy pobrać je lokalnie jako backup
+    if not metadata or (metadata and not metadata.get('title') and not metadata.get('artist')):
+        logger.debug("Brak metadanych z main.py, próba pobrania lokalnie")
+        try:
+            from services.shairport_listener import get_current_track_info_shairport
+            track_info = get_current_track_info_shairport()
+            if track_info:
+                title, artist, album, cover_path = track_info
+                metadata = {
+                    'title': title,
+                    'artist': artist,
+                    'album': album,
+                    'cover_path': cover_path,
+                    'is_playing': True if (title and artist) else False
+                }
+                logger.debug(f"Pobrano lokalne metadane: {title} - {artist}")
+        except Exception as e:
+            logger.error(f"Błąd podczas pobierania lokalnych metadanych: {e}")
+    
+    # Ustawienia ekranu
+    width, height = screen.get_size()
+    
+    # Kolory
+    BLACK = (0, 0, 0)
+    WHITE = (255, 255, 255)
+    GRAY = (100, 100, 100)
+    
+    # Ścieżki czcionek
+    font_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fonts")
+    regular_font_path = os.path.join(font_dir, "Roboto-Regular.ttf")
+    bold_font_path = os.path.join(font_dir, "Roboto-Bold.ttf")
+    
+    # Załaduj czcionki
+    try:
+        title_font = pygame.font.Font(bold_font_path, 36)
+        artist_font = pygame.font.Font(regular_font_path, 30)
+        album_font = pygame.font.Font(regular_font_path, 24)
+    except Exception as e:
+        logger.error(f"Błąd podczas ładowania czcionek: {e}")
+        # Fallback do czcionek systemowych
+        title_font = pygame.font.SysFont("Arial", 36, bold=True)
+        artist_font = pygame.font.SysFont("Arial", 30)
+        album_font = pygame.font.SysFont("Arial", 24)
+    
+    # Załaduj domyślną okładkę
+    default_cover_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "images", "default_cover.png")
+    try:
+        default_cover = pygame.image.load(default_cover_path)
+        default_cover = pygame.transform.scale(default_cover, (300, 300))
+    except Exception as e:
+        logger.error(f"Błąd podczas ładowania domyślnej okładki: {e}")
+        # Tworzenie pustej okładki
+        default_cover = pygame.Surface((300, 300))
+        default_cover.fill(GRAY)
+    
+    # Inicjalizacja zmiennych gestów
+    start_y = None
+    SWIPE_THRESHOLD = 0.25
+    
+    # Główna pętla
+    running = True
+    
     while running:
+        # Sprawdź aktywność co określony czas
+        current_time = time.time()
+        if current_time - LAST_ACTIVITY_CHECK > ACTIVITY_CHECK_INTERVAL:
+            logger.debug("Sprawdzanie aktywności odtwarzania")
+            LAST_ACTIVITY_CHECK = current_time
+            
+            # Sprawdź czy mamy ważne metadane
+            if metadata and metadata.get('title') and metadata.get('artist'):
+                logger.debug(f"Aktualne metadane: {metadata.get('title')} - {metadata.get('artist')}")
+                is_active = metadata.get('is_playing', False)
+                if not is_active:
+                    logger.debug("Brak aktywnego odtwarzania, powrót do zegara")
+                    return "clock"
+            else:
+                logger.debug("Brak ważnych metadanych, sprawdzanie aktywności")
+                # Tutaj można dodać alternatywne sprawdzenie aktywności
+        
+        # Pobierz okładkę z metadanych lub użyj domyślnej
+        if metadata and metadata.get('cover_path'):
+            try:
+                cover_path = metadata.get('cover_path')
+                album_cover = pygame.image.load(cover_path)
+                album_cover = pygame.transform.scale(album_cover, (300, 300))
+            except Exception as e:
+                logger.error(f"Błąd podczas ładowania okładki: {e}")
+                album_cover = default_cover
+        else:
+            album_cover = default_cover
+        
+        # Obsługa zdarzeń
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.FINGERDOWN:
-                start_y = event.y * HEIGHT
-                logger.debug(f"FINGERDOWN  x={event.x:.3f}, y={event.y:.3f}")
-            elif event.type == pygame.FINGERUP and start_y is not None:
-                end_y = event.y * HEIGHT
-                delta_y = start_y - end_y  # Zmiana na odwrócony gest
-                logger.debug(f"FINGERUP    x={event.x:.3f}, y={event.y:.3f}")
-                logger.debug(f" FINGER swipe delta_y={delta_y:.2f}, start_y={start_y:.2f}, end_y={end_y:.2f}")
-                
-                if delta_y > HEIGHT * SWIPE_THRESHOLD:
-                    logger.debug(" SWIPE FINGER => switch to clock")
-                    pygame.event.clear()
-                    return "clock"  # Przechodzimy do zegarka
-                start_y = None
-
-        screen.fill(BACKGROUND_COLOR)
-
-        # Używamy metadanych przekazanych jako parametr
-        if metadata and metadata.get('title') and metadata.get('artist'):
-            title = metadata['title']
-            artist = metadata['artist']
-            album = metadata.get('album', '')
-            cover_path = metadata.get('cover_path')
-            is_playing = metadata.get('is_playing', False)
-            logger.debug(f"Wyświetlam utwór: {title} - {artist}")
-        else:
-            # Fallback - bezpośrednie pobieranie metadanych
-            title, artist, album, cover_path = get_current_track_info_shairport()
-        
-        if not any([title, artist, album]):
-            title = " "
-            artist = " "
-            album = " "
-        if not cover_path or not os.path.isfile(cover_path):
-            cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
-
-        draw_cover_art(screen, cover_path, WIDTH, HEIGHT)
-
-        overlay = pygame.Surface((WIDTH, HEIGHT))
-        overlay.set_alpha(128)
-        overlay.fill((0, 0, 0))
-        screen.blit(overlay, (0, 0))
-
-        artist = truncate_text(artist)
-        album = truncate_text(album)
-        title = truncate_text(title)
-
-        if artist:
-            artist_surface = font_artist.render(artist, True, WHITE)
-            screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 175))
-
-        if album:
-            album_surface = font_album.render(album, True, WHITE)
-            screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 100))
-
-        if title:
-            title_surface = font_title.render(title, True, WHITE)
-            screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
-
-        # Renderowanie ikony play/pause i ograniczenie logowania
-        current_active_state = get_active_state()
-        current_time = time.time()
-        if current_time - last_log_time > LOG_INTERVAL:
-            logger.debug(f"Active state (icon): {current_active_state}")
-            last_log_time = current_time
+                return None
             
-        if current_active_state:
-            screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
-        else:
-            screen.blit(play_icon, (CENTER_X - play_icon.get_width() // 2, CENTER_Y - play_icon.get_height() // 2))
-
+            # Obsługa klawiszy
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return None
+                elif event.key == pygame.K_SPACE:
+                    return "clock"
+            
+            # Obsługa gestów dotykowych
+            elif event.type == pygame.FINGERDOWN:
+                start_y = event.y
+                logger.debug(f"Początek gestu: {start_y}")
+            
+            elif event.type == pygame.FINGERUP and start_y is not None:
+                end_y = event.y
+                logger.debug(f"Koniec gestu: {end_y}")
+                
+                # Gest w górę - przejście do zegara
+                if start_y - end_y > SWIPE_THRESHOLD:  # Gest w górę (od dołu do góry ekranu)
+                    logger.debug(f"Wykryto gest w górę: {start_y} -> {end_y}, powrót do zegara")
+                    return "clock"
+                
+                start_y = None
+        
+        # Czyszczenie ekranu
+        screen.fill(BLACK)
+        
+        # Rysowanie okładki
+        cover_rect = album_cover.get_rect(midtop=(width/2, 50))
+        screen.blit(album_cover, cover_rect)
+        
+        # Rysowanie informacji o utworze
+        y_position = cover_rect.bottom + 20
+        
+        # Tytuł utworu
+        if metadata and metadata.get('title'):
+            title_text = metadata.get('title')
+            # Zawijanie długich tytułów
+            wrapped_title = textwrap.wrap(title_text, width=30)
+            for line in wrapped_title[:2]:  # Maksymalnie 2 linie tytułu
+                title_surface = title_font.render(line, True, WHITE)
+                title_rect = title_surface.get_rect(midtop=(width/2, y_position))
+                screen.blit(title_surface, title_rect)
+                y_position += title_surface.get_height() + 5
+        
+        # Artysta
+        if metadata and metadata.get('artist'):
+            artist_text = metadata.get('artist')
+            artist_surface = artist_font.render(artist_text, True, WHITE)
+            artist_rect = artist_surface.get_rect(midtop=(width/2, y_position))
+            screen.blit(artist_surface, artist_rect)
+            y_position += artist_surface.get_height() + 5
+        
+        # Album
+        if metadata and metadata.get('album'):
+            album_text = metadata.get('album')
+            album_surface = album_font.render(album_text, True, GRAY)
+            album_rect = album_surface.get_rect(midtop=(width/2, y_position))
+            screen.blit(album_surface, album_rect)
+        
+        # Aktualizuj ekran
         pygame.display.flip()
-        clock.tick(30)
-
-    pygame.quit()
+        
+        # Limit FPS
+        time.sleep(0.03)  # ~30fps
+    
+    return None
 
 def draw_cover_art(screen, cover_path, screen_width, screen_height):
     try:
