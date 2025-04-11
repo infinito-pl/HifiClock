@@ -5,7 +5,6 @@ import json
 import glob
 from config import SHAIRPORT_PIPE_PATH, SHAIRPORT_COVER_CACHE_DIR, SHAIRPORT_STATE_FILE, DEFAULT_COVER
 from utils.logging import logger
-from services.metadata.musicbrainz import fetch_and_cache_cover
 
 # Global variables for metadata tracking
 last_title = last_artist = last_album = last_cover = None
@@ -21,7 +20,7 @@ def get_latest_cover():
             return latest_cover
     except Exception as e:
         logger.error(f"Error finding latest cover: {e}")
-    return None
+    return DEFAULT_COVER
 
 def init_cover_cache():
     """Inicjalizuje katalog cache na okładki."""
@@ -93,9 +92,7 @@ def get_current_track_info():
         if title and artist and album:
             last_title, last_artist, last_album = title, artist, album
             cover_path = get_latest_cover()
-            if not cover_path:
-                cover_path = fetch_and_cache_cover(artist, album)
-            last_cover = cover_path or DEFAULT_COVER
+            last_cover = cover_path
             return title, artist, album, last_cover
             
     except subprocess.TimeoutExpired:
