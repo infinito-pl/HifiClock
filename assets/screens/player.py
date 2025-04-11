@@ -44,37 +44,17 @@ def load_and_render_svg(file_path, width, height):
     icon_image = pygame.transform.scale(icon_image, (width, height))
     return icon_image
 
-def run_player_screen(screen, test_mode=False, metadata=(None, None, None, None)):
-    """Uruchamia ekran odtwarzacza."""
+def run_player_screen(screen, test_mode=False):
     WIDTH, HEIGHT = 800, 800
     CENTER_X = WIDTH // 2
     CENTER_Y = HEIGHT // 2
-    
-    # Inicjalizacja zmiennych
-    running = True
-    start_y = None
-    SWIPE_THRESHOLD = 0.25  # Próg dla gestu swipa
-    is_playing = False  # Zmienna do kontrolowania stanu odtwarzania
 
-    # Pobierz metadane z parametru
-    title, artist, album, cover_path = metadata
-    
-    # Jeśli nie mamy metadanych, spróbuj pobrać je z Shairport
-    if not title or not artist:
-        logger.debug("Brak metadanych, próbuję pobrać z Shairport")
-        title, artist, album, cover_path = get_current_track_info_shairport()
-    
-    # Ustaw domyślne wartości jeśli metadane są None
-    if title is None:
-        title = " "
-    if artist is None:
-        artist = " "
-    if album is None:
-        album = " "
-    if not cover_path or not os.path.isfile(cover_path):
-        cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
+    SWIPE_THRESHOLD = 0.25
+    start_y = None  # początkowa pozycja swipa
 
     clock = pygame.time.Clock()
+    running = True
+
     WHITE      = (255, 255, 255)
     BLACK      = (0,   0,   0)
     SEMI_BLACK = (0,   0,   0, 128)
@@ -96,24 +76,32 @@ def run_player_screen(screen, test_mode=False, metadata=(None, None, None, None)
     play_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_play.svg"), 158, 158)
     pause_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_pause.svg"), 158, 158)
     
+    is_playing = False  # Zmienna do kontrolowania stanu odtwarzania
+
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.FINGERDOWN:
                 start_y = event.y * HEIGHT
-                logger.debug(f"FINGERDOWN: y={start_y}")
             elif event.type == pygame.FINGERUP and start_y is not None:
                 end_y = event.y * HEIGHT
-                delta_y = start_y - end_y
-                logger.debug(f"FINGERUP: start_y={start_y}, end_y={end_y}, delta_y={delta_y}")
+                delta_y = start_y - end_y  # Zmiana na odwrócony gest
                 if delta_y > SWIPE_THRESHOLD:
-                    logger.debug("Wykryto gest swipa w górę, przełączam na zegar")
                     pygame.event.clear()
-                    return "clock"
+                    return "clock"  # Przechodzimy do zegarka
                 start_y = None
 
         screen.fill(BACKGROUND_COLOR)
+
+        title, artist, album, cover_path = get_current_track_info_shairport()
+        
+        if not any([title, artist, album]):
+            title = " "
+            artist = " "
+            album = " "
+        if not cover_path or not os.path.isfile(cover_path):
+            cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
 
         draw_cover_art(screen, cover_path, WIDTH, HEIGHT)
 
@@ -125,6 +113,9 @@ def run_player_screen(screen, test_mode=False, metadata=(None, None, None, None)
         artist = truncate_text(artist)
         album = truncate_text(album)
         title = truncate_text(title)
+
+        # Sprawdzenie stanu odtwarzania (czy jest utwór odtwarzany)
+      
 
         if artist:
             artist_surface = font_artist.render(artist, True, WHITE)

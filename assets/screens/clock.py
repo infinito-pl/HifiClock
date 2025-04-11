@@ -8,15 +8,7 @@ import requests
 import io
 import cairosvg
 import locale
-import logging
 from datetime import datetime, time as dt_time
-
-# Konfiguracja logowania
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-)
-logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -229,13 +221,13 @@ def run_clock_screen(screen, test_mode=False):
             not weather_data_loaded or (time.time() - last_weather_check > 900)):
             wtxt, wicon = get_weather_data(city, API_KEY)
             if wtxt and wicon:
-                logger.debug("Pogoda załadowana")
+                print("[DEBUG] Pogoda załadowana")
                 weather_text = wtxt
                 weather_icon = wicon
                 weather_data_loaded = True
                 last_weather_check = time.time()
             else:
-                logger.debug("Brak pogody – spróbuję później")
+                print("[DEBUG] Brak pogody – spróbuję później")
             last_weather_try = time.time()
         now_dt = datetime.now()
         now_time = time.time()
@@ -390,24 +382,56 @@ def run_clock_screen(screen, test_mode=False):
 
         # Obsługa zdarzeń
         for event in pygame.event.get():
+            # Loguj każdy event:
+            #print("[DEBUG] event:", event)
+
             if event.type == pygame.QUIT:
-                logger.debug("Zamknięcie aplikacji")
+                print("[DEBUG] -> QUIT")
                 running = False
+
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                print("[DEBUG] MOUSEBUTTONDOWN pos:", event.pos)
+                start_y = event.pos[1]
+
+            elif event.type == pygame.MOUSEBUTTONUP and start_y is not None:
+                print("[DEBUG] MOUSEBUTTONUP pos:", event.pos)
+                end_y = event.pos[1]
+                delta_y = end_y - start_y
+                print(f"[DEBUG]  MOUSE swipe delta_y = {delta_y}, start_y={start_y}, end_y={end_y}")
+                if delta_y > SWIPE_THRESHOLD:
+                    print("[DEBUG]  SWIPE MOUSE => switch to player")
+                    pygame.event.clear()
+                    return "player"
+                # wyzeruj start_y
+                start_y = None
+
+            # Tryb finger (np. RPi)
             elif event.type == pygame.FINGERDOWN:
+                print(f"[DEBUG] FINGERDOWN  x={event.x:.3f}, y={event.y:.3f}")
                 start_y = event.y * HEIGHT
-                logger.debug(f"FINGERDOWN: y={start_y}")
+
             elif event.type == pygame.FINGERUP and start_y is not None:
+                print(f"[DEBUG] FINGERUP    x={event.x:.3f}, y={event.y:.3f}")
                 end_y = event.y * HEIGHT
                 delta_y = end_y - start_y
-                logger.debug(f"FINGERUP: start_y={start_y}, end_y={end_y}, delta_y={delta_y}")
+                print(f"[DEBUG]  FINGER swipe delta_y={delta_y:.2f}, start_y={start_y:.2f}, end_y={end_y:.2f}")
                 if delta_y > SWIPE_THRESHOLD:
-                    logger.debug("Wykryto gest swipa w dół, przełączam na odtwarzacz")
+                    print("[DEBUG]  SWIPE FINGER => switch to player")
                     pygame.event.clear()
                     return "player"
                 start_y = None
 
-        pygame.display.flip()
-        clock.tick(30)
+            # Test mode => scroll
+            if test_mode:
+                if event.type == pygame.MOUSEWHEEL and event.y < 0:
+                    print("[DEBUG] MOUSEWHEEL => scroll down => switch to player")
+                    pygame.event.clear()
+                    return "player"
 
-    pygame.quit()
+
+        # FPS
+        fps = 30 if not is_night else 10
+        clock.tick(fps)
+        pygame.display.flip()
+
     return None
