@@ -119,11 +119,11 @@ def run_player_screen(screen, test_mode=False):
 
         if artist:
             artist_surface = font_artist.render(artist, True, WHITE)
-            screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 175))
+            screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 180))
 
         if album:
             album_surface = font_album.render(album, True, WHITE)
-            screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 100))
+            screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 120))
 
         if title:
             title_surface = font_title.render(title, True, WHITE)
