@@ -216,13 +216,17 @@ def read_shairport_metadata():
                             logger.debug(f"Received line: {line}")
                             
                             # Obsługa stanu odtwarzania
-                            if "Pause" in line:
-                                active_state = False
-                                logger.debug("Playback paused")
-                                save_state()
-                            elif "Play" in line:
+                            if "Enter Active State" in line or "Play -- first frame received" in line or "Resume" in line:
                                 active_state = True
-                                logger.debug("Playback started")
+                                should_switch_to_player = True
+                                should_switch_to_clock = False
+                                logger.debug("Playback started, switching to player")
+                                save_state()
+                            elif "Exit Active State" in line or "Pause" in line or "Stop" in line:
+                                active_state = False
+                                should_switch_to_player = False
+                                should_switch_to_clock = True
+                                logger.debug("Playback stopped, switching to clock")
                                 save_state()
                             
                             # Obsługa metadanych

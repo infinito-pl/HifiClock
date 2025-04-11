@@ -34,7 +34,7 @@ def main():
 
     current_screen = "clock"
     last_check_time = time.time()
-    CHECK_INTERVAL = 3  # Sprawdzaj co 3 sekundy
+    CHECK_INTERVAL = 1  # Sprawdzaj co sekundę
 
     while True:
         current_time = time.time()
