@@ -9,103 +9,10 @@ import io
 import cairosvg
 import locale
 from datetime import datetime, time as dt_time
-import logging
-from services.weather import get_weather_data
-
-# Konfiguracja logowania
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
-def run_clock_screen(screen, metadata=None):
-    """Ekran zegara z pogodą."""
-    logger.debug("Uruchamiam ekran zegara")
-    
-    # Pobierz rozmiar ekranu
-    screen_width = screen.get_width()
-    screen_height = screen.get_height()
-    
-    # Inicjalizacja zmiennych dla gestów
-    start_y = None
-    SWIPE_THRESHOLD = 0.25  # 25% wysokości ekranu
-    
-    # Główna pętla ekranu zegara
-    running = True
-    while running:
-        try:
-            # Sprawdź czy mamy metadane i czy jest aktywne odtwarzanie
-            if metadata and metadata.get('is_playing'):
-                logger.debug("Wykryto odtwarzanie, przełączam na ekran odtwarzacza")
-                return "player"
-            
-            # Wyczyść ekran
-            screen.fill((0, 0, 0))
-            
-            # Pobierz aktualny czas
-            current_time = datetime.now()
-            time_str = current_time.strftime("%H:%M")
-            date_str = current_time.strftime("%d.%m.%Y")
-            
-            # Pobierz dane pogodowe
-            weather_data = get_weather_data()
-            if weather_data:
-                temp = weather_data.get('temp', '--')
-                icon = weather_data.get('icon', '')
-                
-                # Wyświetl temperaturę
-                font = pygame.font.Font(None, int(screen_height * 0.1))
-                temp_text = font.render(f"{temp}°C", True, (255, 255, 255))
-                temp_rect = temp_text.get_rect(center=(screen_width/2, screen_height*0.3))
-                screen.blit(temp_text, temp_rect)
-            
-            # Wyświetl czas
-            font = pygame.font.Font(None, int(screen_height * 0.2))
-            time_text = font.render(time_str, True, (255, 255, 255))
-            time_rect = time_text.get_rect(center=(screen_width/2, screen_height*0.5))
-            screen.blit(time_text, time_rect)
-            
-            # Wyświetl datę
-            font = pygame.font.Font(None, int(screen_height * 0.05))
-            date_text = font.render(date_str, True, (200, 200, 200))
-            date_rect = date_text.get_rect(center=(screen_width/2, screen_height*0.7))
-            screen.blit(date_text, date_rect)
-            
-            # Obsługa zdarzeń
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return "quit"
-                
-                elif event.type == pygame.FINGERDOWN:
-                    start_y = event.y * screen_height
-                    logger.debug(f"FINGERDOWN  x={event.x:.3f}, y={event.y:.3f}")
-                
-                elif event.type == pygame.FINGERUP and start_y is not None:
-                    end_y = event.y * screen_height
-                    delta_y = end_y - start_y
-                    logger.debug(f"FINGERUP    x={event.x:.3f}, y={event.y:.3f}")
-                    logger.debug(f" FINGER swipe delta_y={delta_y:.2f}, start_y={start_y:.2f}, end_y={end_y:.2f}")
-                    
-                    if abs(delta_y) > screen_height * SWIPE_THRESHOLD:
-                        if delta_y > 0:  # Przesunięcie w dół
-                            logger.debug(" SWIPE FINGER => switch to player")
-                            return "player"
-                    
-                    start_y = None
-            
-            pygame.display.flip()
-            pygame.time.delay(30)  # 30 FPS
-            
-        except Exception as e:
-            logger.error(f"Błąd w ekranie zegara: {e}")
-            time.sleep(1)
-    
-    return "clock"
-
-def run_clock_screen_old(screen, test_mode=False):
+def run_clock_screen(screen, test_mode=False):
     """
     Funkcja uruchamiana z main.py, otrzymuje obiekt 'screen' już utworzony.
     Nie kończy programu, lecz w razie potrzeby zwraca "player" (do przejścia),
