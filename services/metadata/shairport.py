@@ -64,42 +64,59 @@ def load_state():
 
 def get_current_track_info():
     """Pobiera informacje o aktualnym utworze."""
-    global last_title, last_artist, last_album, last_cover
+    global last_title, last_artist, last_album, last_cover, active_state
     
     try:
+        # Sprawdź, czy proces shairport-sync działa
+        ps = subprocess.Popen(['pgrep', 'shairport-sync'], stdout=subprocess.PIPE)
+        output = ps.communicate()[0]
+        if not output:
+            logger.debug("shairport-sync nie jest uruchomiony")
+            active_state = False
+            save_state()
+            return last_title, last_artist, last_album, last_cover
+
+        # Uruchom shairport-sync-metadata-reader z większym timeoutem
         proc = subprocess.Popen(
             ['shairport-sync-metadata-reader'],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
         )
-        stdout, stderr = proc.communicate(timeout=1)
         
-        if stderr:
-            logger.error(f"Błąd shairport-sync-metadata-reader: {stderr}")
-            return None, None, None, None
+        try:
+            stdout, stderr = proc.communicate(timeout=5)  # Zwiększamy timeout do 5 sekund
             
-        # Przetwarzanie metadanych
-        title = artist = album = None
-        for line in stdout.splitlines():
-            if "title:" in line:
-                title = line.split("title:")[1].strip()
-            elif "artist:" in line:
-                artist = line.split("artist:")[1].strip()
-            elif "album:" in line:
-                album = line.split("album:")[1].strip()
+            if stderr:
+                logger.error(f"Błąd shairport-sync-metadata-reader: {stderr}")
+                return last_title, last_artist, last_album, last_cover
                 
-        if title and artist and album:
-            last_title, last_artist, last_album = title, artist, album
-            cover_path = get_latest_cover()
-            last_cover = cover_path
-            return title, artist, album, last_cover
+            # Przetwarzanie metadanych
+            title = artist = album = None
+            for line in stdout.splitlines():
+                if "title:" in line:
+                    title = line.split("title:")[1].strip()
+                elif "artist:" in line:
+                    artist = line.split("artist:")[1].strip()
+                elif "album:" in line:
+                    album = line.split("album:")[1].strip()
+                    
+            if any([title, artist, album]):  # Jeśli mamy jakiekolwiek nowe dane
+                active_state = True
+                if title and artist and album:  # Jeśli mamy wszystkie dane
+                    last_title, last_artist, last_album = title, artist, album
+                    cover_path = get_latest_cover()
+                    last_cover = cover_path
+                save_state()
+                return title or last_title, artist or last_artist, album or last_album, last_cover
+                
+        except subprocess.TimeoutExpired:
+            logger.warning("Timeout przy pobieraniu metadanych - używam poprzednich danych")
+            proc.kill()  # Zabij proces, który się zawiesił
             
-    except subprocess.TimeoutExpired:
-        logger.error("Timeout przy pobieraniu metadanych")
     except Exception as e:
         logger.error(f"Błąd przy pobieraniu metadanych: {e}")
-        
+    
     return last_title, last_artist, last_album, last_cover
 
 # Inicjalizacja przy imporcie

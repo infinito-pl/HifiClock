@@ -1,114 +1,192 @@
 # clock.py
 
 import os
-import pygame
-import time
+import sys
 import math
-import requests
-import io
+import time
+import pygame
 import cairosvg
+import io
 import locale
-from datetime import datetime, time as dt_time
-from config import COLORS, FONTS, SCREEN_WIDTH, SCREEN_HEIGHT, WEATHER_API_KEY, WEATHER_UPDATE_INTERVAL, WEATHER_ICON_SIZE
+import logging
+from datetime import datetime
+from config import COLORS, FONTS, ICONS_DIR, SCREEN_WIDTH, SCREEN_HEIGHT, WEATHER_API_KEY, WEATHER_UPDATE_INTERVAL, WEATHER_ICON_SIZE
 from ui.screens.base import BaseScreen
-from utils.logging import logger
 from services.weather.weather import get_weather_data
-
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+from utils.logging import logger
 
 class ClockScreen(BaseScreen):
     def __init__(self, screen):
         super().__init__(screen)
-        self.font_time = pygame.font.Font(FONTS['BOLD'], 100)
-        self.font_date = pygame.font.Font(FONTS['REGULAR'], 30)
-        self.font_temp = pygame.font.Font(FONTS['REGULAR'], 50)
+        
+        # Fonty
+        self.font_large = pygame.font.Font(FONTS["BOLD"], 212)
+        self.font_small = pygame.font.Font(FONTS["REGULAR"], 38)
+        self.font_date = pygame.font.Font(FONTS["REGULAR"], 50)
+        self.font_temp = pygame.font.Font(FONTS["BOLD"], 38)
+
+        # Ikona pogodowa tymczasowa
+        self.weather_icon = None
+        self.icon_cache = {}
+        
+        # Klepsydra (00d.svg) do animowania przy braku danych pogodowych
+        self.hourglass_icon = None
+        self.hourglass_angle = 0.0
+        self.hourglass_flip_interval = 3.0
+        self.hourglass_flip_duration = 0.3
+        self.hourglass_rotating = False
+        self.hourglass_rotate_start = 0.0
+        self.hourglass_state = 0     # 0 => 0°, 1 => 180°
+        self.last_hourglass_flip = time.time()
+        
+        # Ładujemy plik 00d.svg (klepsydra)
+        self.hourglass_icon = self.load_svg_icon("00d.svg")
         
         # Inicjalizacja danych pogodowych
         self.weather_data = None
         self.last_weather_update = 0
         self.weather_update_interval = 1800  # 30 minut
         
-        # Załaduj ikonę pogody
-        self.weather_icon = None
-        self.weather_icon_path = None
-        self.load_weather_icon()
+        # Ustawienie lokalizacji dla formatowania daty
+        locale.setlocale(locale.LC_TIME, "en_US.UTF-8")
 
-    def load_weather_icon(self):
-        """Ładuje ikonę pogody."""
+    def load_svg_icon(self, filename):
+        """Ładuje plik SVG i zwraca go jako pygame.Surface"""
         try:
-            weather_icon_path = "assets/images/weather/clear.png"  # Domyślna ikona
-            if self.weather_data and 'icon' in self.weather_data:
-                weather_icon_path = f"assets/images/weather/{self.weather_data['icon']}.png"
-            self.weather_icon = pygame.image.load(weather_icon_path)
-            self.weather_icon = pygame.transform.scale(self.weather_icon, WEATHER_ICON_SIZE)
-            self.weather_icon_path = weather_icon_path
-            logger.debug(f"Loaded weather icon: {weather_icon_path}")
+            path = os.path.join(ICONS_DIR, filename)
+            with open(path, "rb") as svg_file:
+                svg_data = svg_file.read()
+            png_data = cairosvg.svg2png(
+                bytestring=svg_data,
+                output_width=62,
+                output_height=48
+            )
+            surf = pygame.image.load(io.BytesIO(png_data)).convert_alpha()
+            return surf
         except Exception as e:
-            logger.error(f"Błąd ładowania ikony pogody: {e}")
-            self.weather_icon = None
-            self.weather_icon_path = None
+            logger.error(f"Błąd ładowania ikony {filename}: {e}")
+            fallback = pygame.Surface((62, 48))
+            fallback.fill(COLORS["GRAY"])
+            return fallback
 
-    def update_weather(self):
-        """Aktualizuje dane pogodowe."""
-        current_time = time.time()
-        if current_time - self.last_weather_update > self.weather_update_interval:
+    def load_weather_icon(self, code):
+        """Ładuje ikonę pogodową z cache lub z pliku"""
+        fallback_map = {
+            "03d": "02d", "03n": "02n",
+            "04n": "04d",
+            "09n": "09d",
+            "10n": "10d",
+            "11n": "11d",
+            "13n": "13d",
+            "50n": "50d"
+        }
+        
+        # Jeśli mamy ikonę w cache, zwróć ją
+        if code in self.icon_cache:
+            return self.icon_cache[code]
+            
+        # Jeśli nie mamy ikony, spróbuj załadować
+        try:
+            # Najpierw spróbuj załadować oryginalną ikonę
+            icon = self.load_svg_icon(f"{code}.svg")
+            self.icon_cache[code] = icon
+            return icon
+        except Exception as e:
+            # Jeśli nie udało się załadować, spróbuj użyć fallback
+            fallback_code = fallback_map.get(code, "00d")
             try:
-                # Najpierw pobierz lokalizację
-                location_response = requests.get('http://ip-api.com/json/')
-                location_data = location_response.json()
-                city = location_data.get('city', 'Wroclaw')  # Domyślnie Wrocław
+                icon = self.load_svg_icon(f"{fallback_code}.svg")
+                self.icon_cache[code] = icon
+                return icon
+            except Exception as e:
+                # Jeśli i to się nie udało, zwróć klepsydrę
+                return self.hourglass_icon
 
-                # Następnie pobierz pogodę
-                weather_url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={WEATHER_API_KEY}&units=metric"
-                response = requests.get(weather_url)
-                self.weather_data = response.json()
-                
-                # Załaduj odpowiednią ikonę
-                icon_code = self.weather_data['weather'][0]['icon']
-                self.load_weather_icon()
-                
-                self.last_weather_update = current_time
-                logger.debug(f"Weather updated for {city}")
+    def update(self):
+        """Aktualizuje stan ekranu"""
+        now_time = time.time()
+        
+        # Aktualizacja pogody co 30 minut
+        if now_time - self.last_weather_update >= self.weather_update_interval:
+            try:
+                self.weather_data = get_weather_data()
+                self.last_weather_update = now_time
             except Exception as e:
                 logger.error(f"Błąd aktualizacji pogody: {e}")
 
-    def update(self):
-        """Aktualizuje stan ekranu."""
-        self.update_weather()
-
     def draw(self):
-        """Rysuje ekran zegara."""
+        """Rysuje zawartość ekranu"""
         super().draw()
         
         # Pobierz aktualny czas
-        current_time = time.strftime("%H:%M")
-        current_date = time.strftime("%A, %d %B %Y")
+        current_time = time.localtime()
         
         # Rysuj czas
-        time_text = self.font_time.render(current_time, True, COLORS['WHITE'])
-        time_rect = time_text.get_rect(center=(self.width // 2, self.height // 2 - 50))
-        self.screen.blit(time_text, time_rect)
+        time_str = time.strftime("%H:%M", current_time)
+        time_surface = self.font_large.render(time_str, True, COLORS["WHITE"])
+        time_rect = time_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+        self.screen.blit(time_surface, time_rect)
         
         # Rysuj datę
-        date_text = self.font_date.render(current_date, True, COLORS['WHITE'])
-        date_rect = date_text.get_rect(center=(self.width // 2, self.height // 2 + 50))
-        self.screen.blit(date_text, date_rect)
+        date_str = time.strftime("%A, %d %B %Y", current_time)
+        date_surface = self.font_date.render(date_str, True, COLORS["WHITE"])
+        date_rect = date_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100))
+        self.screen.blit(date_surface, date_rect)
         
-        # Rysuj temperaturę i ikonę pogody
-        if self.weather_data and self.weather_icon:
-            temp_text = self.font_temp.render(f"{self.weather_data['temp']}°C", True, COLORS['WHITE'])
-            temp_rect = temp_text.get_rect(center=(self.width // 2, self.height // 2 + 100))
-            self.screen.blit(temp_text, temp_rect)
+        # Rysuj pogodę
+        if self.weather_data:
+            # Temperatura
+            temp_str = f"{self.weather_data['temp']}°C"
+            temp_surface = self.font_temp.render(temp_str, True, COLORS["WHITE"])
+            temp_rect = temp_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 150))
+            self.screen.blit(temp_surface, temp_rect)
             
-            icon_rect = self.weather_icon.get_rect(center=(self.width // 2, self.height // 2 + 170))
-            self.screen.blit(self.weather_icon, icon_rect)
+            # Ikona pogody
+            weather_icon = self.load_weather_icon(self.weather_data['icon'])
+            if weather_icon:
+                icon_rect = weather_icon.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 200))
+                self.screen.blit(weather_icon, icon_rect)
+        else:
+            # Animacja klepsydry
+            now_time = time.time()
+            if now_time - self.last_hourglass_flip >= self.hourglass_flip_interval:
+                self.hourglass_rotating = True
+                self.hourglass_rotate_start = now_time
+                self.last_hourglass_flip = now_time
+                self.hourglass_state = 1 - self.hourglass_state
+            
+            if self.hourglass_rotating:
+                elapsed = now_time - self.hourglass_rotate_start
+                if elapsed < self.hourglass_flip_duration:
+                    progress = elapsed / self.hourglass_flip_duration
+                    self.hourglass_angle = 180 * progress if self.hourglass_state == 1 else 180 * (1 - progress)
+                else:
+                    self.hourglass_rotating = False
+                    self.hourglass_angle = 180 if self.hourglass_state == 1 else 0
+            
+            rotated_icon = pygame.transform.rotate(self.hourglass_icon, self.hourglass_angle)
+            icon_rect = rotated_icon.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 200))
+            self.screen.blit(rotated_icon, icon_rect)
 
     def run(self):
-        """Uruchamia ekran zegara."""
-        result = super().run()
-        if result == "swipe_down":
-            return "player"
-        return result
+        """Główna pętla ekranu zegara"""
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return None
+                elif event.type == pygame.FINGERDOWN:
+                    self.start_y = event.y * SCREEN_HEIGHT
+                elif event.type == pygame.FINGERUP:
+                    end_y = event.y * SCREEN_HEIGHT
+                    delta_y = end_y - self.start_y
+                    if delta_y > 50:  # Przesunięcie w dół
+                        return "player"
+            
+            self.update()
+            self.draw()
+            pygame.display.flip()
+            pygame.time.Clock().tick(60)
 
 def run_clock_screen(screen):
     """
@@ -142,8 +220,8 @@ def run_clock_screen(screen):
     DARK_GRAY = DAY_DARK_GRAY
 
     # Fonty
-    font_regular = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Regular.ttf")
-    font_bold    = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
+    font_regular = os.path.join(os.path.dirname(__file__), "..", "..", "assets", "fonts", "Barlow-Regular.ttf")
+    font_bold    = os.path.join(os.path.dirname(__file__), "..", "..", "assets", "fonts", "Barlow-Bold.ttf")
 
     font_large = pygame.font.Font(font_bold, 212)
     font_small = pygame.font.Font(font_regular, 38)
@@ -169,7 +247,7 @@ def run_clock_screen(screen):
         """
         Ładuje plik .svg i zwraca go jako pygame.Surface
         """
-        path = os.path.join(BASE_DIR, "assets", "icons", svg_filename)
+        path = os.path.join(os.path.dirname(__file__), "..", "..", "assets", "icons", svg_filename)
         try:
             with open(path, "rb") as svg_file:
                 svg_data = svg_file.read()
