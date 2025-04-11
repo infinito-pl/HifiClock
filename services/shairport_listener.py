@@ -115,15 +115,19 @@ def get_current_track_info_shairport():
             universal_newlines=True
         )
         
-        # Ustaw timeout na 1 sekundę
+        # Ustaw timeout na 5 sekund
         try:
-            stdout, stderr = proc.communicate(timeout=1)
+            stdout, stderr = proc.communicate(timeout=5)
             if stderr:
                 logger.error(f"Błąd shairport-sync-metadata-reader: {stderr}")
         except subprocess.TimeoutExpired:
             logger.warning("Timeout podczas odczytu metadanych")
             proc.kill()
             stdout, stderr = proc.communicate()
+            # Jeśli mamy poprzednie metadane, zwróć je zamiast None
+            if last_title and last_artist and last_album:
+                logger.debug("Używam poprzednich metadanych z powodu timeoutu")
+                return last_title, last_artist, last_album, last_cover
             return None, None, None, None
         
         # Przetwarzaj dane tylko jeśli mamy wyjście
@@ -181,6 +185,10 @@ def get_current_track_info_shairport():
             
     except Exception as e:
         logger.error(f"Błąd podczas pobierania metadanych: {e}")
+        # Jeśli mamy poprzednie metadane, zwróć je zamiast None
+        if last_title and last_artist and last_album:
+            logger.debug("Używam poprzednich metadanych z powodu błędu")
+            return last_title, last_artist, last_album, last_cover
     
     return None, None, None, None
 
