@@ -5,6 +5,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UI_DIR = os.path.join(BASE_DIR, "ui")
 COMPONENTS_DIR = os.path.join(UI_DIR, "components")
 ICONS_DIR = os.path.join(COMPONENTS_DIR, "icons")
+FONTS_DIR = os.path.join(COMPONENTS_DIR, "fonts")
 
 # Ustawienia ekranu
 SCREEN_WIDTH = 800
@@ -41,9 +42,9 @@ COLORS = {
 
 # Czcionki
 FONTS = {
-    "SMALL": None,  # Domyślna czcionka systemowa
-    "MEDIUM": None,
-    "LARGE": None,
+    "REGULAR": os.path.join(FONTS_DIR, "Barlow-Regular.ttf"),
+    "BOLD": os.path.join(FONTS_DIR, "Barlow-Bold.ttf"),
+    "MEDIUM": os.path.join(FONTS_DIR, "Barlow-Regular.ttf")  # Używamy Regular zamiast Medium, bo nie mamy Medium
 }
 
 # Ikony
