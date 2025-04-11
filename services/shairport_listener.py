@@ -96,88 +96,89 @@ def update_play_pause_icon():
 
 # Function to read and fetch metadata from shairport-sync-metadata-reader
 def get_current_track_info_shairport():
-    """
-    Pobiera aktualne informacje o utworze z shairport-sync-metadata-reader.
-    Zwraca krotkę (title, artist, album, cover_path) lub (None, None, None, None) w przypadku błędu.
-    """
+    """Pobiera informacje o aktualnie odtwarzanym utworze z shairport-sync-metadata-reader."""
     global last_title, last_artist, last_album, last_cover
     
     logger.debug("Starting to fetch track info from shairport-sync-metadata-reader.")
-    start_time = time.time()
-    
-    # Inicjalizacja zmiennych
-    title = None
-    artist = None
-    album = None
-    cover_path = None
-    
-    while time.time() - start_time < 5.0:  # Dłuższy czas na próbę pobrania metadanych
-        try:
-            proc = subprocess.Popen(
-                ["/usr/local/bin/shairport-sync-metadata-reader"],
-                stdin=open(PIPE_PATH, "rb"),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                text=True,
-                bufsize=1
-            )
-            
-            for line in proc.stdout:
-                line = line.strip()
-                logger.debug(f"Received line: {line}")
-                
-                if line.startswith("Title:"):
-                    title = line.split(': "', 1)[1].strip('".')
-                    logger.debug(f"Extracted Title: {title}")
-                elif line.startswith("Artist:"):
-                    artist = line.split(': "', 1)[1].strip('".')
-                    logger.debug(f"Extracted Artist: {artist}")
-                elif line.startswith("Album Name:"):
-                    album = line.split(': "', 1)[1].strip('".')
-                    logger.debug(f"Extracted Album: {album}")
-                elif "Picture received" in line and "length" in line:
-                    cover_path = get_latest_cover()
-                    logger.debug(f"Cover path set to: {cover_path}")
-                if title and artist and album:  # Jeśli wszystkie metadane są dostępne, zakończ pętlę
-                    break
-            proc.terminate()
-            
-            if title and artist and album:
-                break  # Metadane pobrane, zakończ próbę
-                
-        except Exception as e:
-            logger.error(f"Failed to retrieve metadata: {e}")
+    try:
+        proc = subprocess.Popen(
+            ["shairport-sync-metadata-reader"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding='utf-8',
+            errors='replace'  # Zastąp nieprawidłowe znaki
+        )
+        stdout, stderr = proc.communicate(timeout=1)
+        
+        if stderr:
+            logger.error(f"Błąd shairport-sync-metadata-reader: {stderr}")
             return None, None, None, None
-    
-    # Jeśli mamy nową okładkę z Shairport, używamy jej
-    if cover_path and os.path.isfile(cover_path):
-        last_cover = cover_path
-        logger.debug(f"Using cover from Shairport: {cover_path}")
-    # Jeśli nie mamy nowej okładki, ale mamy poprzednią z Shairport, używamy jej
-    elif last_cover and os.path.isfile(last_cover) and "shairport-sync" in last_cover:
-        logger.debug(f"Using previous cover from Shairport: {last_cover}")
-    # Jeśli nie mamy okładki z Shairport, próbujemy MusicBrainz
-    else:
-        last_cover = None
-        logger.debug("No cover found from Shairport, trying MusicBrainz")
-        if title and artist and album:
-            cover_path = fetch_and_cache_cover(artist, album)
-            if cover_path:
-                logger.debug(f"Found cover from MusicBrainz: {cover_path}")
-                last_cover = cover_path
-            else:
-                logger.debug("No cover found in MusicBrainz, using default cover")
-                last_cover = DEFAULT_COVER
+            
+        if not stdout:
+            logger.debug("Brak danych z shairport-sync-metadata-reader")
+            return None, None, None, None
+            
+        # Przetwarzaj dane
+        title = None
+        artist = None
+        album = None
+        cover_path = None
+        
+        for line in stdout.split('\n'):
+            if "Title:" in line:
+                title = line.split("Title:")[1].strip()
+            elif "Artist:" in line:
+                artist = line.split("Artist:")[1].strip()
+            elif "Album:" in line:
+                album = line.split("Album:")[1].strip()
+            elif "Cover Art:" in line:
+                cover_path = line.split("Cover Art:")[1].strip()
+                
+        if not any([title, artist, album]):
+            logger.debug("Brak metadanych w odpowiedzi")
+            return None, None, None, None
+            
+        logger.debug(f"Pobrano metadane: {title} - {artist} - {album}")
+        
+        # Logika pobierania okładki
+        # Jeśli mamy nową okładkę z Shairport, używamy jej
+        if cover_path and os.path.isfile(cover_path):
+            last_cover = cover_path
+            logger.debug(f"Using cover from Shairport: {cover_path}")
+        # Jeśli nie mamy nowej okładki, ale mamy poprzednią z Shairport, używamy jej
+        elif last_cover and os.path.isfile(last_cover) and "shairport-sync" in last_cover:
+            logger.debug(f"Using previous cover from Shairport: {last_cover}")
+        # Jeśli nie mamy okładki z Shairport, próbujemy MusicBrainz
         else:
-            logger.debug("No metadata available, using default cover")
-            last_cover = DEFAULT_COVER
+            last_cover = None
+            logger.debug("No cover found from Shairport, trying MusicBrainz")
+            if title and artist and album:
+                cover_path = fetch_and_cache_cover(artist, album)
+                if cover_path:
+                    logger.debug(f"Found cover from MusicBrainz: {cover_path}")
+                    last_cover = cover_path
+                else:
+                    logger.debug("No cover found in MusicBrainz, using default cover")
+                    last_cover = DEFAULT_COVER
+            else:
+                logger.debug("No metadata available, using default cover")
+                last_cover = DEFAULT_COVER
 
-    last_title = title
-    last_artist = artist
-    last_album = album
+        last_title = title
+        last_artist = artist
+        last_album = album
 
-    logger.debug(f"Metadata: Title={title}, Artist={artist}, Album={album}, Cover={last_cover}")
-    return title, artist, album, last_cover
+        logger.debug(f"Metadata: Title={title}, Artist={artist}, Album={album}, Cover={last_cover}")
+        return title, artist, album, last_cover
+        
+    except subprocess.TimeoutExpired:
+        logger.error("Timeout podczas pobierania metadanych")
+        proc.kill()
+        return None, None, None, None
+    except Exception as e:
+        logger.error(f"Błąd podczas pobierania metadanych: {e}")
+        return None, None, None, None
 
 # Function to listen to shairport state and control UI changes
 def read_shairport_metadata():

@@ -49,13 +49,32 @@ def run_player_screen(screen, test_mode=False, metadata=(None, None, None, None)
     WIDTH, HEIGHT = 800, 800
     CENTER_X = WIDTH // 2
     CENTER_Y = HEIGHT // 2
+    
+    # Inicjalizacja zmiennych
+    running = True
+    start_y = None
+    SWIPE_THRESHOLD = 0.25  # Próg dla gestu swipa
+    is_playing = False  # Zmienna do kontrolowania stanu odtwarzania
 
-    SWIPE_THRESHOLD = 0.25
-    start_y = None  # początkowa pozycja swipa
+    # Pobierz metadane z parametru
+    title, artist, album, cover_path = metadata
+    
+    # Jeśli nie mamy metadanych, spróbuj pobrać je z Shairport
+    if not title or not artist:
+        logger.debug("Brak metadanych, próbuję pobrać z Shairport")
+        title, artist, album, cover_path = get_current_track_info_shairport()
+    
+    # Ustaw domyślne wartości jeśli metadane są None
+    if title is None:
+        title = " "
+    if artist is None:
+        artist = " "
+    if album is None:
+        album = " "
+    if not cover_path or not os.path.isfile(cover_path):
+        cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
 
     clock = pygame.time.Clock()
-    running = True
-
     WHITE      = (255, 255, 255)
     BLACK      = (0,   0,   0)
     SEMI_BLACK = (0,   0,   0, 128)
@@ -76,16 +95,6 @@ def run_player_screen(screen, test_mode=False, metadata=(None, None, None, None)
     # Załaduj ikony play/pause
     play_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_play.svg"), 158, 158)
     pause_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_pause.svg"), 158, 158)
-    
-    is_playing = False  # Zmienna do kontrolowania stanu odtwarzania
-
-    # Pobierz metadane z parametru
-    title, artist, album, cover_path = metadata
-    
-    # Jeśli nie mamy metadanych, spróbuj pobrać je z Shairport
-    if not title or not artist:
-        logger.debug("Brak metadanych, próbuję pobrać z Shairport")
-        title, artist, album, cover_path = get_current_track_info_shairport()
     
     while running:
         for event in pygame.event.get():
