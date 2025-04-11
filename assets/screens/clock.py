@@ -32,6 +32,9 @@ def run_clock_screen(screen, test_mode=False):
     Nie kończy programu, lecz w razie potrzeby zwraca "player" (do przejścia),
     albo None, jeśli użytkownik zamknie okno (QUIT) lub pętla się zakończy.
     """
+    logger.debug("=== Rozpoczynam run_clock_screen ===")
+    logger.debug(f"Rozmiar ekranu: {screen.get_size()}")
+    logger.debug(f"Tryb testowy: {test_mode}")
 
     locale.setlocale(locale.LC_TIME, "en_US.UTF-8")
 
