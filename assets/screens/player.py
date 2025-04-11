@@ -44,7 +44,7 @@ def load_and_render_svg(file_path, width, height):
     icon_image = pygame.transform.scale(icon_image, (width, height))
     return icon_image
 
-def run_player_screen(screen, test_mode=False, metadata=None):
+def run_player_screen(screen, test_mode=False):
     WIDTH, HEIGHT = 800, 800
     CENTER_X = WIDTH // 2
     CENTER_Y = HEIGHT // 2
@@ -94,22 +94,14 @@ def run_player_screen(screen, test_mode=False, metadata=None):
 
         screen.fill(BACKGROUND_COLOR)
 
-        # Użyj metadanych z main.py jeśli są dostępne
-        if metadata and metadata.get('title') and metadata.get('artist'):
-            title = metadata['title']
-            artist = metadata['artist']
-            album = metadata.get('album', '')
-            cover_path = metadata.get('cover_path')
-            is_playing = metadata.get('is_playing', False)
-        else:
-            # Jeśli nie ma metadanych, spróbuj pobrać z Shairport
-            title, artist, album, cover_path = get_current_track_info_shairport()
-            if not any([title, artist, album]):
-                title = " "
-                artist = " "
-                album = " "
-            if not cover_path or not os.path.isfile(cover_path):
-                cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
+        title, artist, album, cover_path = get_current_track_info_shairport()
+        
+        if not any([title, artist, album]):
+            title = " "
+            artist = " "
+            album = " "
+        if not cover_path or not os.path.isfile(cover_path):
+            cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
 
         draw_cover_art(screen, cover_path, WIDTH, HEIGHT)
 
@@ -121,6 +113,9 @@ def run_player_screen(screen, test_mode=False, metadata=None):
         artist = truncate_text(artist)
         album = truncate_text(album)
         title = truncate_text(title)
+
+        # Sprawdzenie stanu odtwarzania (czy jest utwór odtwarzany)
+      
 
         if artist:
             artist_surface = font_artist.render(artist, True, WHITE)

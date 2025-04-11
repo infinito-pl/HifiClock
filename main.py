@@ -2,29 +2,8 @@ import os
 import sys
 import pygame
 import threading
-import logging
-import time
-from datetime import datetime
 from assets.screens.clock import run_clock_screen
 from assets.screens.player import run_player_screen
-from services.shairport_listener import get_current_track_info_shairport, read_shairport_metadata
-
-# Konfiguracja logowania
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Globalne zmienne dla metadanych
-current_metadata = {
-    'title': None,
-    'artist': None,
-    'album': None,
-    'cover_path': None,
-    'source': None,  # 'shairport' lub 'mopidy'
-    'is_playing': False
-}
 
 should_switch_to_player = False  # Flaga do przełączania na ekran player
 should_switch_to_clock = False   # Flaga do przełączania na ekran zegara
@@ -39,43 +18,6 @@ def get_current_track_info_shairport():
     # Replace this with actual implementation
     return None, None, None, None
 
-def metadata_thread():
-    """Wątek obsługujący odczyt metadanych z różnych źródeł."""
-    logger.debug("Uruchamiam wątek metadanych")
-    
-    while True:
-        try:
-            # Sprawdzamy Shairport
-            title, artist, album, cover_path = get_current_track_info_shairport()
-            if title or artist or album:
-                current_metadata.update({
-                    'title': title,
-                    'artist': artist,
-                    'album': album,
-                    'cover_path': cover_path,
-                    'source': 'shairport',
-                    'is_playing': True
-                })
-                logger.debug(f"Zaktualizowano metadane z Shairport: {title} - {artist}")
-            
-            # TODO: Obsługa Mopidy
-            # if mopidy_is_playing():
-            #     title, artist, album, cover_path = get_mopidy_metadata()
-            #     current_metadata.update({
-            #         'title': title,
-            #         'artist': artist,
-            #         'album': album,
-            #         'cover_path': cover_path,
-            #         'source': 'mopidy',
-            #         'is_playing': True
-            #     })
-            
-            time.sleep(1)  # Sprawdzamy co sekundę
-            
-        except Exception as e:
-            logger.error(f"Błąd w wątku metadanych: {e}")
-            time.sleep(1)
-
 def main():
     global should_switch_to_player, should_switch_to_clock
 
@@ -89,10 +31,6 @@ def main():
         screen = pygame.display.set_mode((800, 800), pygame.FULLSCREEN)
 
     print("Current SDL driver:", pygame.display.get_driver())
-
-    # Uruchom wątek metadanych
-    metadata_thread = threading.Thread(target=metadata_thread, daemon=True)
-    metadata_thread.start()
 
     current_screen = "clock"
     last_playing_status = None  # Zmienna do monitorowania stanu odtwarzania
@@ -112,13 +50,13 @@ def main():
             should_switch_to_clock = False  # Resetujemy flagę po przełączeniu
 
         if current_screen == "clock":
-            result = run_clock_screen(screen, test_mode=test_mode, metadata=current_metadata)
+            result = run_clock_screen(screen, test_mode=test_mode)
             if result == "player":
                 should_switch_to_player = True  # Ustawiamy flagę do przełączenia na player
             else:
                 break
         elif current_screen == "player":
-            result = run_player_screen(screen, test_mode=test_mode, metadata=current_metadata)
+            result = run_player_screen(screen, test_mode=test_mode)
             if result == "clock":
                 should_switch_to_clock = True  # Ustawiamy flagę do przełączenia na clock
             elif title is None or artist is None:  # Sprawdzenie, czy muzyka jest zatrzymana

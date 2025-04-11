@@ -9,15 +9,6 @@ import io
 import cairosvg
 import locale
 from datetime import datetime, time as dt_time
-import logging
-from services.weather import get_weather_data
-
-# Konfiguracja logowania
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
