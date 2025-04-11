@@ -2,10 +2,9 @@ import os
 
 # Ścieżki do zasobów
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ASSETS_DIR = os.path.join(BASE_DIR, "assets")
-IMAGES_DIR = os.path.join(ASSETS_DIR, "images")
-ICONS_DIR = os.path.join(ASSETS_DIR, "images", "icons")
-WEATHER_ICONS_DIR = os.path.join(ASSETS_DIR, "images", "weather")
+UI_DIR = os.path.join(BASE_DIR, "ui")
+COMPONENTS_DIR = os.path.join(UI_DIR, "components")
+ICONS_DIR = os.path.join(COMPONENTS_DIR, "icons")
 
 # Ustawienia ekranu
 SCREEN_WIDTH = 800
@@ -45,13 +44,13 @@ FONTS = {
     "LARGE": None,
 }
 
-# Ścieżki do ikon
-ICON_PATHS = {
-    "PLAY": os.path.join("ui", "components", "icons", "btn_play.svg"),
-    "PAUSE": os.path.join("ui", "components", "icons", "btn_pause.svg"),
-    "NEXT": os.path.join("ui", "components", "icons", "btn_next.svg"),
-    "PREV": os.path.join("ui", "components", "icons", "btn_prev.svg"),
+# Ikony
+ICONS = {
+    "PLAY": os.path.join(ICONS_DIR, "btn_play.svg"),
+    "PAUSE": os.path.join(ICONS_DIR, "btn_pause.svg"),
+    "NEXT": os.path.join(ICONS_DIR, "btn_next.svg"),
+    "PREV": os.path.join(ICONS_DIR, "btn_prev.svg"),
 }
 
 # Domyślna okładka
-DEFAULT_COVER = os.path.join(ASSETS_DIR, "images", "default_cover.jpg") 
+DEFAULT_COVER = os.path.join(BASE_DIR, "assets", "images", "default_cover.jpg") 

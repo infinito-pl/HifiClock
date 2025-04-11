@@ -45,8 +45,8 @@ class PlayerScreen(BaseScreen):
         self.font_artist = pygame.font.Font(None, 36)
         self.font_album = pygame.font.Font(None, 32)
         self.font_title = pygame.font.Font(None, 48)
-        self.play_icon = self.load_icon(ICON_PATHS["PLAY"])
-        self.pause_icon = self.load_icon(ICON_PATHS["PAUSE"])
+        self.play_icon = self.load_icon(ICONS["PLAY"])
+        self.pause_icon = self.load_icon(ICONS["PAUSE"])
         self.cover_image = None
         self.current_metadata = None
 
