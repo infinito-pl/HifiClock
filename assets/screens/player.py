@@ -6,13 +6,8 @@ import pygame
 import cairosvg
 import io
 import logging
-from services.shairport_listener import (
-    get_current_track_info_shairport,
-    get_active_state,
-    should_switch_to_player_screen,
-    should_switch_to_clock_screen,
-    reset_switch_flags
-)
+import json
+from services.shairport_listener import read_shairport_metadata
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -20,6 +15,22 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
 )
 logger = logging.getLogger(__name__)
+
+STATE_FILE = "/tmp/shairport_state.json"
+
+def get_active_state():
+    try:
+        with open(STATE_FILE, 'r') as f:
+            state = json.load(f)
+            return state.get("active_state", False)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return False
+
+try:
+    from services.shairport_listener import get_current_track_info_shairport
+except ImportError:
+    def get_current_track_info_shairport():
+        return (None, None, None, None)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -39,7 +50,7 @@ def run_player_screen(screen, test_mode=False):
     CENTER_Y = HEIGHT // 2
 
     SWIPE_THRESHOLD = 0.25
-    start_y = None
+    start_y = None  # początkowa pozycja swipa
 
     clock = pygame.time.Clock()
     running = True
@@ -65,9 +76,7 @@ def run_player_screen(screen, test_mode=False):
     play_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_play.svg"), 158, 158)
     pause_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_pause.svg"), 158, 158)
     
-    # Początkowy stan
-    last_title = last_artist = last_album = last_cover = None
-    last_active_state = None
+    is_playing = False  # Zmienna do kontrolowania stanu odtwarzania
 
     while running:
         for event in pygame.event.get():
@@ -80,64 +89,55 @@ def run_player_screen(screen, test_mode=False):
                 delta_y = start_y - end_y  # Zmiana na odwrócony gest
                 if delta_y > SWIPE_THRESHOLD:
                     pygame.event.clear()
-                    reset_switch_flags()
                     return "clock"  # Przechodzimy do zegarka
                 start_y = None
 
         screen.fill(BACKGROUND_COLOR)
 
         title, artist, album, cover_path = get_current_track_info_shairport()
-        current_active_state = get_active_state()
         
-        # Aktualizuj ekran tylko jeśli coś się zmieniło
-        if (title != last_title or artist != last_artist or 
-            album != last_album or cover_path != last_cover or 
-            current_active_state != last_active_state):
+        if not any([title, artist, album]):
+            title = " "
+            artist = " "
+            album = " "
+        if not cover_path or not os.path.isfile(cover_path):
+            cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
 
-            logger.debug(f"Aktualizacja ekranu: title={title}, artist={artist}, album={album}, cover={cover_path}, active={current_active_state}")
+        draw_cover_art(screen, cover_path, WIDTH, HEIGHT)
 
-            if not any([title, artist, album]):
-                title = " "
-                artist = " "
-                album = " "
-            if not cover_path or not os.path.isfile(cover_path):
-                cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(128)
+        overlay.fill((0, 0, 0))
+        screen.blit(overlay, (0, 0))
 
-            draw_cover_art(screen, cover_path, WIDTH, HEIGHT)
+        artist = truncate_text(artist)
+        album = truncate_text(album)
+        title = truncate_text(title)
 
-            overlay = pygame.Surface((WIDTH, HEIGHT))
-            overlay.set_alpha(128)
-            overlay.fill((0, 0, 0))
-            screen.blit(overlay, (0, 0))
+        # Sprawdzenie stanu odtwarzania (czy jest utwór odtwarzany)
+      
 
-            artist = truncate_text(artist)
-            album = truncate_text(album)
-            title = truncate_text(title)
+        if artist:
+            artist_surface = font_artist.render(artist, True, WHITE)
+            screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 175))
 
-            if artist:
-                artist_surface = font_artist.render(artist, True, WHITE)
-                screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 175))
+        if album:
+            album_surface = font_album.render(album, True, WHITE)
+            screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 100))
 
-            if album:
-                album_surface = font_album.render(album, True, WHITE)
-                screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 100))
+        if title:
+            title_surface = font_title.render(title, True, WHITE)
+            screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
 
-            if title:
-                title_surface = font_title.render(title, True, WHITE)
-                screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
+        # Renderowanie ikony play/pause
+        current_active_state = get_active_state()
+        logger.debug(f"Active state (icon): {current_active_state}")
+        if current_active_state:
+            screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
+        else:
+            screen.blit(play_icon, (CENTER_X - play_icon.get_width() // 2, CENTER_Y - play_icon.get_height() // 2))
 
-            # Renderowanie ikony play/pause
-            if current_active_state:
-                screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
-            else:
-                screen.blit(play_icon, (CENTER_X - play_icon.get_width() // 2, CENTER_Y - play_icon.get_height() // 2))
-
-            pygame.display.flip()
-
-            # Zapamiętaj aktualny stan
-            last_title, last_artist, last_album, last_cover = title, artist, album, cover_path
-            last_active_state = current_active_state
-
+        pygame.display.flip()
         clock.tick(30)
 
     pygame.quit()
@@ -150,9 +150,9 @@ def draw_cover_art(screen, cover_path, screen_width, screen_height):
             cover.set_alpha(int(0.4 * 255))  # Zmniejszamy opacity z 0.5 do 0.4
             screen.blit(cover, (0, 0))
     except Exception as e:
-        logger.error(f"Błąd podczas ładowania okładki: {e}")
+        logger.error(f"Error loading cover art: {e}")
         # W przypadku błędu, wyświetl domyślną okładkę
-        default_cover = pygame.image.load(os.path.join(BASE_DIR, "assets", "images", "cover.png"))
+        default_cover = pygame.image.load(os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "images", "cover.png"))
         default_cover = pygame.transform.scale(default_cover, (screen_width, screen_height))
         default_cover.set_alpha(int(0.4 * 255))  # To samo opacity dla domyślnej okładki
         screen.blit(default_cover, (0, 0))
