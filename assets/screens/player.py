@@ -76,7 +76,9 @@ def run_player_screen(screen, test_mode=False):
     play_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_play.svg"), 158, 158)
     pause_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_pause.svg"), 158, 158)
     
-    is_playing = False  # Zmienna do kontrolowania stanu odtwarzania
+    # Początkowy stan
+    last_title = last_artist = last_album = last_cover = None
+    last_active_state = None
 
     while running:
         for event in pygame.event.get():
@@ -95,49 +97,56 @@ def run_player_screen(screen, test_mode=False):
         screen.fill(BACKGROUND_COLOR)
 
         title, artist, album, cover_path = get_current_track_info_shairport()
-        
-        if not any([title, artist, album]):
-            title = " "
-            artist = " "
-            album = " "
-        if not cover_path or not os.path.isfile(cover_path):
-            cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
-
-        draw_cover_art(screen, cover_path, WIDTH, HEIGHT)
-
-        overlay = pygame.Surface((WIDTH, HEIGHT))
-        overlay.set_alpha(128)
-        overlay.fill((0, 0, 0))
-        screen.blit(overlay, (0, 0))
-
-        artist = truncate_text(artist)
-        album = truncate_text(album)
-        title = truncate_text(title)
-
-        # Sprawdzenie stanu odtwarzania (czy jest utwór odtwarzany)
-      
-
-        if artist:
-            artist_surface = font_artist.render(artist, True, WHITE)
-            screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 175))
-
-        if album:
-            album_surface = font_album.render(album, True, WHITE)
-            screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 100))
-
-        if title:
-            title_surface = font_title.render(title, True, WHITE)
-            screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
-
-        # Renderowanie ikony play/pause
         current_active_state = get_active_state()
-        logger.debug(f"Active state (icon): {current_active_state}")
-        if current_active_state:
-            screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
-        else:
-            screen.blit(play_icon, (CENTER_X - play_icon.get_width() // 2, CENTER_Y - play_icon.get_height() // 2))
+        
+        # Aktualizuj ekran tylko jeśli coś się zmieniło
+        if (title != last_title or artist != last_artist or 
+            album != last_album or cover_path != last_cover or 
+            current_active_state != last_active_state):
 
-        pygame.display.flip()
+            if not any([title, artist, album]):
+                title = " "
+                artist = " "
+                album = " "
+            if not cover_path or not os.path.isfile(cover_path):
+                cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
+
+            draw_cover_art(screen, cover_path, WIDTH, HEIGHT)
+
+            overlay = pygame.Surface((WIDTH, HEIGHT))
+            overlay.set_alpha(128)
+            overlay.fill((0, 0, 0))
+            screen.blit(overlay, (0, 0))
+
+            artist = truncate_text(artist)
+            album = truncate_text(album)
+            title = truncate_text(title)
+
+            if artist:
+                artist_surface = font_artist.render(artist, True, WHITE)
+                screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 175))
+
+            if album:
+                album_surface = font_album.render(album, True, WHITE)
+                screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 100))
+
+            if title:
+                title_surface = font_title.render(title, True, WHITE)
+                screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
+
+            # Renderowanie ikony play/pause
+            logger.debug(f"Active state (icon): {current_active_state}")
+            if current_active_state:
+                screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
+            else:
+                screen.blit(play_icon, (CENTER_X - play_icon.get_width() // 2, CENTER_Y - play_icon.get_height() // 2))
+
+            pygame.display.flip()
+
+            # Zapamiętaj aktualny stan
+            last_title, last_artist, last_album, last_cover = title, artist, album, cover_path
+            last_active_state = current_active_state
+
         clock.tick(30)
 
     pygame.quit()

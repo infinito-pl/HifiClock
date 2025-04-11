@@ -85,14 +85,16 @@ init_state_file()
 
 # Funkcja do zarządzania stanem ikony play/pause
 def update_play_pause_icon():
+    global should_switch_to_player, should_switch_to_clock
     if active_state:
-        # Jeśli muzyka jest odtwarzana, ustaw ikonę na pauzę
-        logger.debug("Music is playing, setting icon to 'pause'.")
-        # Kod do zmiany ikony na pauzę (np. aktualizacja UI)
+        logger.debug("Music is playing, setting icon to 'pause' and switching to player screen")
+        should_switch_to_player = True
+        should_switch_to_clock = False
     else:
-        # Jeśli muzyka nie jest odtwarzana, ustaw ikonę na play
-        logger.debug("Music is paused, setting icon to 'play'.")
-        # Kod do zmiany ikony na play (np. aktualizacja UI)
+        logger.debug("Music is paused, setting icon to 'play' and switching to clock screen")
+        should_switch_to_player = False
+        should_switch_to_clock = True
+    save_state()
 
 # Function to read and fetch metadata from shairport-sync-metadata-reader
 def get_current_track_info_shairport():
@@ -197,24 +199,15 @@ def read_shairport_metadata():
                     if "Play" in line or "Resume" in line:
                         logger.debug("Play/Resume event detected")
                         active_state = True
-                        should_switch_to_player = True
-                        should_switch_to_clock = False
-                        save_state()
-                        logger.debug("State updated: active_state=True, should_switch_to_player=True")
+                        update_play_pause_icon()
                     elif "Pause" in line or "Stop" in line:
                         logger.debug("Pause/Stop event detected")
                         active_state = False
-                        should_switch_to_player = False
-                        should_switch_to_clock = True
-                        save_state()
-                        logger.debug("State updated: active_state=False, should_switch_to_player=False")
+                        update_play_pause_icon()
                     elif "Exit Active State" in line:
                         logger.debug("Exit Active State detected")
                         active_state = False
-                        should_switch_to_player = False
-                        should_switch_to_clock = True
-                        save_state()
-                        logger.debug("State updated: active_state=False, should_switch_to_player=False")
+                        update_play_pause_icon()
 
                 logger.debug("Process terminated")
                 proc.terminate()
