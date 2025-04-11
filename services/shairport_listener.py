@@ -183,12 +183,20 @@ def read_shairport_metadata():
 def should_switch_to_player_screen():
     """Sprawdza czy należy przełączyć na ekran odtwarzacza."""
     with state_lock:
-        return should_switch_to_player
+        result = should_switch_to_player
+        if result:
+            should_switch_to_player = False
+            save_state()
+        return result
 
 def should_switch_to_clock_screen():
     """Sprawdza czy należy przełączyć na ekran zegara."""
     with state_lock:
-        return should_switch_to_clock
+        result = should_switch_to_clock
+        if result:
+            should_switch_to_clock = False
+            save_state()
+        return result
 
 def reset_switch_flags():
     """Resetuje flagi przełączania ekranów."""
