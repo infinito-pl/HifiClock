@@ -28,7 +28,7 @@ running = True
 def signal_handler(signum, frame):
     """Obsługa sygnałów zamykania aplikacji."""
     global running
-    logger.debug("Otrzymano sygnał zamykania")
+    logger.debug(f"Otrzymano sygnał {signum}")
     running = False
 
 def start_shairport_listener():
@@ -42,6 +42,14 @@ def main():
     global running
     
     # Rejestracja obsługi sygnałów
+    original_sigint = signal.getsignal(signal.SIGINT)
+    original_sigterm = signal.getsignal(signal.SIGTERM)
+    
+    def cleanup():
+        """Przywraca oryginalne obsługi sygnałów."""
+        signal.signal(signal.SIGINT, original_sigint)
+        signal.signal(signal.SIGTERM, original_sigterm)
+    
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
@@ -107,6 +115,7 @@ def main():
     finally:
         logger.debug("Zamykanie aplikacji...")
         running = False
+        cleanup()  # Przywróć oryginalne obsługi sygnałów
         pygame.quit()
         sys.exit(0)
 
