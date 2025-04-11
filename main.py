@@ -12,7 +12,8 @@ from services.shairport_listener import (
     should_switch_to_player_screen,
     should_switch_to_clock_screen,
     reset_switch_flags,
-    read_shairport_metadata
+    read_shairport_metadata,
+    load_state
 )
 
 # Konfiguracja logowania
@@ -65,6 +66,9 @@ def main():
     
     # Inicjalizacja zegara
     clock = pygame.time.Clock()
+    
+    # Załaduj stan początkowy
+    load_state()
     
     # Uruchom listener Shairport w tle
     shairport_thread = start_shairport_listener()
