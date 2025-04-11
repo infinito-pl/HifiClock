@@ -5,6 +5,7 @@ import logging
 import json
 import shutil
 import glob
+import threading
 from services.musicbrainz_cover import fetch_and_cache_cover
 
 # Konfiguracja logowania
@@ -20,6 +21,9 @@ STATE_FILE = os.path.join(BASE_DIR, "state", "playback_state.json")
 DEFAULT_COVER = os.path.join(BASE_DIR, "assets", "images", "cover.png")
 PIPE_PATH = "/tmp/shairport-sync-metadata"
 COVER_CACHE_DIR = "/tmp/shairport-sync/.cache/coverart"
+
+# Lock do synchronizacji dostępu do zmiennych globalnych
+state_lock = threading.Lock()
 
 # Global variables for metadata tracking
 last_title = last_artist = last_album = last_cover = None
@@ -178,9 +182,18 @@ def get_current_track_info_shairport():
     logger.debug(f"Metadata: Title={title}, Artist={artist}, Album={album}, Cover={last_cover}")
     return title, artist, album, last_cover
 
-# Function to listen to shairport state and control UI changes
+def update_state(new_active_state, new_should_switch_to_player, new_should_switch_to_clock):
+    """Aktualizuje stan odtwarzania w sposób bezpieczny dla wątków."""
+    global active_state, should_switch_to_player, should_switch_to_clock
+    with state_lock:
+        active_state = new_active_state
+        should_switch_to_player = new_should_switch_to_player
+        should_switch_to_clock = new_should_switch_to_clock
+        logger.debug(f"Zaktualizowano stan: active_state={active_state}, should_switch_to_player={should_switch_to_player}, should_switch_to_clock={should_switch_to_clock}")
+        save_state()
+
 def read_shairport_metadata():
-    global last_title, last_artist, last_album, last_cover, active_state, should_switch_to_player, should_switch_to_clock
+    global last_title, last_artist, last_album, last_cover
 
     logger.debug("=== Rozpoczynam nasłuchiwanie Shairport ===")
     
@@ -203,19 +216,11 @@ def read_shairport_metadata():
 
                 if "Enter Active State" in line or "Play -- first frame received" in line or "Resume" in line:
                     logger.debug("=== Wykryto zdarzenie odtwarzania ===")
-                    active_state = True
-                    should_switch_to_player = True
-                    should_switch_to_clock = False
-                    save_state()
-                    logger.debug(f"Stan: active_state={active_state}, should_switch_to_player={should_switch_to_player}, should_switch_to_clock={should_switch_to_clock}")
+                    update_state(True, True, False)
 
                 elif "Exit Active State" in line or "Pause" in line or "Stop" in line or "Play Session End" in line or "disconnected" in line:
                     logger.debug("=== Wykryto zdarzenie zatrzymania/rozłączenia ===")
-                    active_state = False
-                    should_switch_to_player = False
-                    should_switch_to_clock = True
-                    save_state()
-                    logger.debug(f"Stan: active_state={active_state}, should_switch_to_player={should_switch_to_player}, should_switch_to_clock={should_switch_to_clock}")
+                    update_state(False, False, True)
 
                 # Regularly fetch metadata when active
                 if active_state:
@@ -238,21 +243,24 @@ def read_shairport_metadata():
 def should_switch_to_player_screen():
     """Sprawdza czy należy przełączyć na ekran odtwarzacza."""
     global should_switch_to_player
-    logger.debug(f"Sprawdzanie should_switch_to_player: {should_switch_to_player}")
-    return should_switch_to_player
+    with state_lock:
+        logger.debug(f"Sprawdzanie should_switch_to_player: {should_switch_to_player}")
+        return should_switch_to_player
 
 def should_switch_to_clock_screen():
     """Sprawdza czy należy przełączyć na ekran zegara."""
     global should_switch_to_clock
-    logger.debug(f"Sprawdzanie should_switch_to_clock: {should_switch_to_clock}")
-    return should_switch_to_clock
+    with state_lock:
+        logger.debug(f"Sprawdzanie should_switch_to_clock: {should_switch_to_clock}")
+        return should_switch_to_clock
 
 def reset_switch_flags():
     """Resetuje flagi przełączania ekranów."""
     global should_switch_to_player, should_switch_to_clock
-    should_switch_to_player = False
-    should_switch_to_clock = False
-    logger.debug("Reset flag: should_switch_to_player=False, should_switch_to_clock=False")
+    with state_lock:
+        should_switch_to_player = False
+        should_switch_to_clock = False
+        logger.debug("Reset flag: should_switch_to_player=False, should_switch_to_clock=False")
 
 # Main function to start the listener
 if __name__ == "__main__":
