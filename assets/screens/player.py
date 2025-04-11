@@ -9,7 +9,9 @@ import logging
 import json
 from services.shairport_listener import (
     get_current_track_info_shairport,
+    active_state,
     should_switch_to_clock_screen,
+    should_switch_to_player_screen,
     reset_switch_flags
 )
 
@@ -79,10 +81,14 @@ def run_player_screen(screen, test_mode=False):
                 return None
             elif event.type == pygame.FINGERDOWN:
                 start_y = event.y * HEIGHT
+                logger.debug(f"[DEBUG] FINGERDOWN  x={event.x:.3f}, y={event.y:.3f}")
             elif event.type == pygame.FINGERUP and start_y is not None:
                 end_y = event.y * HEIGHT
                 delta_y = start_y - end_y  # Zmiana na odwrócony gest
+                logger.debug(f"[DEBUG] FINGERUP    x={event.x:.3f}, y={event.y:.3f}")
+                logger.debug(f"[DEBUG]  FINGER swipe delta_y={delta_y:.2f}, start_y={start_y:.2f}, end_y={end_y:.2f}")
                 if delta_y > SWIPE_THRESHOLD:
+                    logger.debug("[DEBUG]  SWIPE FINGER => switch to clock")
                     pygame.event.clear()
                     reset_switch_flags()  # Resetuj flagi przed przejściem do zegara
                     return "clock"  # Przechodzimy do zegarka
