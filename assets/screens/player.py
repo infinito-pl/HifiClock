@@ -7,13 +7,7 @@ import cairosvg
 import io
 import logging
 import json
-from services.shairport_listener import (
-    get_current_track_info_shairport,
-    active_state,
-    should_switch_to_clock_screen,
-    should_switch_to_player_screen,
-    reset_switch_flags
-)
+from services.shairport_listener import read_shairport_metadata
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -22,6 +16,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+STATE_FILE = "/tmp/shairport_state.json"
+
+def get_active_state():
+    try:
+        with open(STATE_FILE, 'r') as f:
+            state = json.load(f)
+            return state.get("active_state", False)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return False
+
+try:
+    from services.shairport_listener import get_current_track_info_shairport
+except ImportError:
+    def get_current_track_info_shairport():
+        return (None, None, None, None)
+
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 def truncate_text(text, max_length=30):
@@ -29,14 +39,10 @@ def truncate_text(text, max_length=30):
 
 # Zdefiniuj funkcję do ładowania i rysowania SVG
 def load_and_render_svg(file_path, width, height):
-    try:
-        svg_data = cairosvg.svg2png(url=file_path)
-        icon_image = pygame.image.load(io.BytesIO(svg_data))
-        icon_image = pygame.transform.scale(icon_image, (width, height))
-        return icon_image
-    except Exception as e:
-        logger.error(f"Błąd ładowania ikony SVG: {e}")
-        return None
+    svg_data = cairosvg.svg2png(url=file_path)
+    icon_image = pygame.image.load(io.BytesIO(svg_data))
+    icon_image = pygame.transform.scale(icon_image, (width, height))
+    return icon_image
 
 def run_player_screen(screen, test_mode=False):
     WIDTH, HEIGHT = 800, 800
@@ -70,87 +76,71 @@ def run_player_screen(screen, test_mode=False):
     play_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_play.svg"), 158, 158)
     pause_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_pause.svg"), 158, 158)
     
-    if not play_icon or not pause_icon:
-        logger.error("Nie udało się załadować ikon play/pause")
-        return None
+    is_playing = False  # Zmienna do kontrolowania stanu odtwarzania
 
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-                return None
             elif event.type == pygame.FINGERDOWN:
                 start_y = event.y * HEIGHT
-                logger.debug(f"[DEBUG] FINGERDOWN  x={event.x:.3f}, y={event.y:.3f}")
             elif event.type == pygame.FINGERUP and start_y is not None:
                 end_y = event.y * HEIGHT
                 delta_y = start_y - end_y  # Zmiana na odwrócony gest
-                logger.debug(f"[DEBUG] FINGERUP    x={event.x:.3f}, y={event.y:.3f}")
-                logger.debug(f"[DEBUG]  FINGER swipe delta_y={delta_y:.2f}, start_y={start_y:.2f}, end_y={end_y:.2f}")
                 if delta_y > SWIPE_THRESHOLD:
-                    logger.debug("[DEBUG]  SWIPE FINGER => switch to clock")
                     pygame.event.clear()
-                    reset_switch_flags()  # Resetuj flagi przed przejściem do zegara
                     return "clock"  # Przechodzimy do zegarka
                 start_y = None
 
-        # Sprawdź czy należy przełączyć na zegar
-        if should_switch_to_clock_screen():
-            logger.debug("Przełączanie na zegar z player_screen")
-            reset_switch_flags()  # Resetuj flagi przed przejściem do zegara
-            return "clock"
-
         screen.fill(BACKGROUND_COLOR)
 
-        try:
-            title, artist, album, cover_path = get_current_track_info_shairport()
-            
-            if not any([title, artist, album]):
-                title = " "
-                artist = " "
-                album = " "
-            if not cover_path or not os.path.isfile(cover_path):
-                cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
+        title, artist, album, cover_path = get_current_track_info_shairport()
+        
+        if not any([title, artist, album]):
+            title = " "
+            artist = " "
+            album = " "
+        if not cover_path or not os.path.isfile(cover_path):
+            cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
 
-            draw_cover_art(screen, cover_path, WIDTH, HEIGHT)
+        draw_cover_art(screen, cover_path, WIDTH, HEIGHT)
 
-            overlay = pygame.Surface((WIDTH, HEIGHT))
-            overlay.set_alpha(128)
-            overlay.fill((0, 0, 0))
-            screen.blit(overlay, (0, 0))
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(128)
+        overlay.fill((0, 0, 0))
+        screen.blit(overlay, (0, 0))
 
-            artist = truncate_text(artist)
-            album = truncate_text(album)
-            title = truncate_text(title)
+        artist = truncate_text(artist)
+        album = truncate_text(album)
+        title = truncate_text(title)
 
-            if artist:
-                artist_surface = font_artist.render(artist, True, WHITE)
-                screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 200))
+        # Sprawdzenie stanu odtwarzania (czy jest utwór odtwarzany)
+      
 
-            if album:
-                album_surface = font_album.render(album, True, WHITE)
-                screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 140))
+        if artist:
+            artist_surface = font_artist.render(artist, True, WHITE)
+            screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 175))
 
-            if title:
-                title_surface = font_title.render(title, True, WHITE)
-                screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
+        if album:
+            album_surface = font_album.render(album, True, WHITE)
+            screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 100))
 
-            # Renderowanie ikony play/pause
-            if active_state:
-                screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
-            else:
-                screen.blit(play_icon, (CENTER_X - play_icon.get_width() // 2, CENTER_Y - play_icon.get_height() // 2))
+        if title:
+            title_surface = font_title.render(title, True, WHITE)
+            screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
 
-        except Exception as e:
-            logger.error(f"Błąd podczas aktualizacji ekranu: {e}")
-            # W przypadku błędu, wyświetl domyślną okładkę
-            default_cover = os.path.join(BASE_DIR, "assets", "images", "cover.png")
-            draw_cover_art(screen, default_cover, WIDTH, HEIGHT)
+        # Renderowanie ikony play/pause
+        current_active_state = get_active_state()
+        logger.debug(f"Active state (icon): {current_active_state}")
+        if current_active_state:
+            screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
+        else:
+            screen.blit(play_icon, (CENTER_X - play_icon.get_width() // 2, CENTER_Y - play_icon.get_height() // 2))
 
         pygame.display.flip()
         clock.tick(30)
 
-    return None
+    pygame.quit()
 
 def draw_cover_art(screen, cover_path, screen_width, screen_height):
     try:
@@ -160,11 +150,9 @@ def draw_cover_art(screen, cover_path, screen_width, screen_height):
             cover.set_alpha(int(0.4 * 255))  # Zmniejszamy opacity z 0.5 do 0.4
             screen.blit(cover, (0, 0))
     except Exception as e:
-        logger.error(f"Błąd ładowania okładki: {e}")
+        logger.error(f"Error loading cover art: {e}")
         # W przypadku błędu, wyświetl domyślną okładkę
-        default_cover = os.path.join(BASE_DIR, "assets", "images", "cover.png")
-        if os.path.exists(default_cover):
-            cover = pygame.image.load(default_cover)
-            cover = pygame.transform.scale(cover, (screen_width, screen_height))
-            cover.set_alpha(int(0.4 * 255))
-            screen.blit(cover, (0, 0))
+        default_cover = pygame.image.load(os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "images", "cover.png"))
+        default_cover = pygame.transform.scale(default_cover, (screen_width, screen_height))
+        default_cover.set_alpha(int(0.4 * 255))  # To samo opacity dla domyślnej okładki
+        screen.blit(default_cover, (0, 0))

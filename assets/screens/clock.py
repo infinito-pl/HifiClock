@@ -8,21 +8,7 @@ import requests
 import io
 import cairosvg
 import locale
-import logging
 from datetime import datetime, time as dt_time
-from services.shairport_listener import (
-    should_switch_to_player_screen,
-    reset_switch_flags
-)
-
-# Konfiguracja logowania
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-)
-logger = logging.getLogger(__name__)
-
-logger.debug("=== Załadowano clock.py ===")
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -32,9 +18,6 @@ def run_clock_screen(screen, test_mode=False):
     Nie kończy programu, lecz w razie potrzeby zwraca "player" (do przejścia),
     albo None, jeśli użytkownik zamknie okno (QUIT) lub pętla się zakończy.
     """
-    logger.debug("=== Rozpoczynam run_clock_screen ===")
-    logger.debug(f"Rozmiar ekranu: {screen.get_size()}")
-    logger.debug(f"Tryb testowy: {test_mode}")
 
     locale.setlocale(locale.LC_TIME, "en_US.UTF-8")
 
@@ -272,14 +255,8 @@ def run_clock_screen(screen, test_mode=False):
             else:
                 os.system("echo 192 | sudo tee /sys/class/backlight/*/brightness > /dev/null")
 
-        # Sprawdź czy należy przełączyć na odtwarzacz
-        if should_switch_to_player_screen():
-            logger.debug("Przełączanie na odtwarzacz z clock_screen")
-            reset_switch_flags()  # Resetuj flagi przed przejściem do odtwarzacza
-            return "player"
-
         # Tło fal
-        draw_wave_background(screen, now_time - start_time, is_night)
+        draw_wave_background(screen, now_time, is_night)
 
         # Fade przy zmianie minuty
         if current_time_str != prev_time_text:
@@ -373,6 +350,7 @@ def run_clock_screen(screen, test_mode=False):
             else:
                 screen.blit(weather_icon, icon_pos)
 
+
         # Sekundowy ring
         current_ring_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         for i in range(60):
@@ -450,57 +428,10 @@ def run_clock_screen(screen, test_mode=False):
                     pygame.event.clear()
                     return "player"
 
+
         # FPS
         fps = 30 if not is_night else 10
         clock.tick(fps)
         pygame.display.flip()
 
     return None
-
-def draw_clock_ring(surface, time_str, color_white, color_dark_gray):
-    """
-    Rysuje pierścień zegara z cyframi i kreskami
-    """
-    WIDTH, HEIGHT = 800, 800
-    CENTER_X = WIDTH // 2
-    CENTER_Y = HEIGHT // 2
-    RADIUS_OUTER = 380
-    RADIUS_INNER = 370
-    RADIUS_OUTER_LONG = 388
-    RADIUS_INNER_LONG = 362
-
-    # Rysowanie kresek
-    for i in range(60):
-        angle = math.radians(i * 6)
-        if i % 5 == 0:
-            # Długie kreski (co 5 minut)
-            start_x = CENTER_X + math.sin(angle) * RADIUS_INNER_LONG
-            start_y = CENTER_Y - math.cos(angle) * RADIUS_INNER_LONG
-            end_x = CENTER_X + math.sin(angle) * RADIUS_OUTER_LONG
-            end_y = CENTER_Y - math.cos(angle) * RADIUS_OUTER_LONG
-            pygame.draw.line(surface, color_white, (start_x, start_y), (end_x, end_y), 2)
-        else:
-            # Krótkie kreski
-            start_x = CENTER_X + math.sin(angle) * RADIUS_INNER
-            start_y = CENTER_Y - math.cos(angle) * RADIUS_INNER
-            end_x = CENTER_X + math.sin(angle) * RADIUS_OUTER
-            end_y = CENTER_Y - math.cos(angle) * RADIUS_OUTER
-            pygame.draw.line(surface, color_dark_gray, (start_x, start_y), (end_x, end_y), 1)
-
-    # Rysowanie cyfr
-    font = pygame.font.Font(None, 50)
-    for i in range(12):
-        angle = math.radians(i * 30)
-        digit = str(i if i > 0 else 12)
-        digit_surface = font.render(digit, True, color_white)
-        digit_rect = digit_surface.get_rect()
-        digit_rect.centerx = CENTER_X + math.sin(angle) * (RADIUS_INNER - 30)
-        digit_rect.centery = CENTER_Y - math.cos(angle) * (RADIUS_INNER - 30)
-        surface.blit(digit_surface, digit_rect)
-
-    # Rysowanie czasu
-    time_surface = font.render(time_str, True, color_white)
-    time_rect = time_surface.get_rect()
-    time_rect.centerx = CENTER_X
-    time_rect.centery = CENTER_Y
-    surface.blit(time_surface, time_rect)

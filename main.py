@@ -1,140 +1,78 @@
 import os
 import sys
 import pygame
-import logging
 import threading
-import signal
 from assets.screens.clock import run_clock_screen
 from assets.screens.player import run_player_screen
-from services.shairport_listener import (
-    get_current_track_info_shairport,
-    active_state,
-    should_switch_to_player_screen,
-    should_switch_to_clock_screen,
-    reset_switch_flags,
-    read_shairport_metadata,
-    load_state,
-    update_state
-)
 
-# Konfiguracja logowania
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-)
-logger = logging.getLogger(__name__)
+should_switch_to_player = False  # Flaga do przełączania na ekran player
+should_switch_to_clock = False   # Flaga do przełączania na ekran zegara
 
-# Globalna zmienna do kontroli zamykania aplikacji
-running = True
+def load_metadata():
+    """Funkcja, która będzie odpowiedzialna za pobieranie metadanych w tle."""
+    title, artist, album, cover_path = get_current_track_info_shairport()
+    return title, artist, album, cover_path
 
-def signal_handler(signum, frame):
-    """Obsługa sygnałów zamykania aplikacji."""
-    global running
-    logger.debug(f"Otrzymano sygnał {signum}")
-    running = False
-    # Rzucamy wyjątek KeyboardInterrupt, aby przerwać główną pętlę
-    raise KeyboardInterrupt()
-
-def start_shairport_listener():
-    """Uruchamia listener Shairport w osobnym wątku."""
-    thread = threading.Thread(target=read_shairport_metadata, daemon=True)
-    thread.start()
-    logger.debug("Shairport listener started in background thread")
-    return thread
+def get_current_track_info_shairport():
+    # Mock function to emulate getting track info from Shairport
+    # Replace this with actual implementation
+    return None, None, None, None
 
 def main():
-    global running
-    
-    # Rejestracja obsługi sygnałów
-    original_sigint = signal.getsignal(signal.SIGINT)
-    original_sigterm = signal.getsignal(signal.SIGTERM)
-    
-    def cleanup():
-        """Przywraca oryginalne obsługi sygnałów."""
-        signal.signal(signal.SIGINT, original_sigint)
-        signal.signal(signal.SIGTERM, original_sigterm)
-    
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
+    global should_switch_to_player, should_switch_to_clock
+
     pygame.init()
-    pygame.mixer.quit() #Pygame nie blokuje karty muzycznej dla Shairport i Mopidy
-    pygame.mouse.set_visible(False)
-    
-    # Ustawienie trybu pełnoekranowego
-    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-    WIDTH, HEIGHT = screen.get_size()
-    logger.debug(f"Utworzono ekran o rozmiarze: {WIDTH}x{HEIGHT}")
-    
-    # Inicjalizacja zegara
-    clock = pygame.time.Clock()
-    
-    # Załaduj stan początkowy
-    load_state()
-    
-    # Uruchom listener Shairport w tle
-    shairport_thread = start_shairport_listener()
-    
-    # Początkowy ekran
+    pygame.mixer.quit()
+
+    test_mode = "--test" in sys.argv
+    if test_mode:
+        screen = pygame.display.set_mode((800, 800))
+    else:
+        screen = pygame.display.set_mode((800, 800), pygame.FULLSCREEN)
+
+    print("Current SDL driver:", pygame.display.get_driver())
+
     current_screen = "clock"
-    logger.debug(f"Początkowy ekran: {current_screen}")
-    
-    # Licznik do sprawdzania stanu odtwarzania
-    check_counter = 0
-    CHECK_INTERVAL = 15  # Sprawdzaj co 15 klatek (około 0.5 sekundy przy 30 FPS)
-    
-    try:
-        while running:
-            # Sprawdź stan odtwarzania co określony interwał
-            check_counter += 1
-            if check_counter >= CHECK_INTERVAL:
-                check_counter = 0
-                
-                # Sprawdź czy należy przełączyć ekran
-                if should_switch_to_player_screen() and current_screen == "clock":
-                    logger.debug("=== Przełączanie na ekran odtwarzacza ===")
-                    current_screen = "player"
-                    reset_switch_flags()
-                    logger.debug(f"Nowy ekran: {current_screen}")
-                elif should_switch_to_clock_screen() and current_screen == "player":
-                    logger.debug("=== Przełączanie na ekran zegara ===")
-                    current_screen = "clock"
-                    reset_switch_flags()
-                    logger.debug(f"Nowy ekran: {current_screen}")
-            
-            # Uruchom odpowiedni ekran
-            logger.debug(f"Uruchamiam ekran: {current_screen}")
-            if current_screen == "clock":
-                logger.debug("=== Wywołuję run_clock_screen ===")
-                next_screen = run_clock_screen(screen)
-                logger.debug(f"run_clock_screen zwrócił: {next_screen}")
-                if next_screen == "player":
-                    logger.debug("=== Przełączanie na ekran odtwarzacza przez gest ===")
-                    current_screen = "player"
-                    reset_switch_flags()
-                    logger.debug(f"Nowy ekran: {current_screen}")
+    last_playing_status = None  # Zmienna do monitorowania stanu odtwarzania
+
+    while True:
+        # Uruchamiamy pobieranie metadanych w tle
+        title, artist, album, cover_path = load_metadata()
+
+        if should_switch_to_player:
+            print("[DEBUG] Changing to player screen...")
+            current_screen = "player"
+            should_switch_to_player = False  # Resetujemy flagę po przełączeniu
+
+        if should_switch_to_clock:
+            print("[DEBUG] Changing to clock screen...")
+            current_screen = "clock"
+            should_switch_to_clock = False  # Resetujemy flagę po przełączeniu
+
+        if current_screen == "clock":
+            result = run_clock_screen(screen, test_mode=test_mode)
+            if result == "player":
+                should_switch_to_player = True  # Ustawiamy flagę do przełączenia na player
             else:
-                logger.debug("=== Wywołuję run_player_screen ===")
-                next_screen = run_player_screen(screen)
-                logger.debug(f"run_player_screen zwrócił: {next_screen}")
-                if next_screen == "clock":
-                    logger.debug("=== Przełączanie na ekran zegara przez gest ===")
-                    current_screen = "clock"
-                    reset_switch_flags()
-                    logger.debug(f"Nowy ekran: {current_screen}")
-            
-            clock.tick(30)
-            
-    except KeyboardInterrupt:
-        logger.debug("Otrzymano KeyboardInterrupt - zamykanie aplikacji")
-    except Exception as e:
-        logger.error(f"Błąd w głównej pętli: {e}")
-    finally:
-        logger.debug("Zamykanie aplikacji...")
-        running = False
-        cleanup()  # Przywróć oryginalne obsługi sygnałów
-        pygame.quit()
-        sys.exit(0)
+                break
+        elif current_screen == "player":
+            result = run_player_screen(screen, test_mode=test_mode)
+            if result == "clock":
+                should_switch_to_clock = True  # Ustawiamy flagę do przełączenia na clock
+            elif title is None or artist is None:  # Sprawdzenie, czy muzyka jest zatrzymana
+                should_switch_to_clock = True  # Po zakończeniu połączenia przechodzimy na zegar
+            else:
+                # Muzyka wciąż odtwarzana
+                last_playing_status = (title, artist, album, cover_path)
+                continue
+
+    # Wyczyść ekran przed wyjściem
+    screen.fill((0, 0, 0))
+    pygame.display.flip()
+    pygame.time.delay(200)
+
+    pygame.quit()
+    sys.exit()
 
 if __name__ == "__main__":
     main()
