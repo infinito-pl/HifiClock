@@ -7,7 +7,11 @@ import cairosvg
 import io
 import logging
 import json
-from services.shairport_listener import read_shairport_metadata
+from services.shairport_listener import (
+    get_current_track_info_shairport,
+    active_state,
+    should_switch_to_clock_screen
+)
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -15,22 +19,6 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
 )
 logger = logging.getLogger(__name__)
-
-STATE_FILE = "/tmp/shairport_state.json"
-
-def get_active_state():
-    try:
-        with open(STATE_FILE, 'r') as f:
-            state = json.load(f)
-            return state.get("active_state", False)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return False
-
-try:
-    from services.shairport_listener import get_current_track_info_shairport
-except ImportError:
-    def get_current_track_info_shairport():
-        return (None, None, None, None)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -82,6 +70,7 @@ def run_player_screen(screen, test_mode=False):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                return None
             elif event.type == pygame.FINGERDOWN:
                 start_y = event.y * HEIGHT
             elif event.type == pygame.FINGERUP and start_y is not None:
@@ -91,6 +80,11 @@ def run_player_screen(screen, test_mode=False):
                     pygame.event.clear()
                     return "clock"  # Przechodzimy do zegarka
                 start_y = None
+
+        # Sprawdź czy należy przełączyć na zegar
+        if should_switch_to_clock_screen():
+            logger.debug("Przełączanie na zegar z player_screen")
+            return "clock"
 
         screen.fill(BACKGROUND_COLOR)
 
@@ -114,9 +108,6 @@ def run_player_screen(screen, test_mode=False):
         album = truncate_text(album)
         title = truncate_text(title)
 
-        # Sprawdzenie stanu odtwarzania (czy jest utwór odtwarzany)
-      
-
         if artist:
             artist_surface = font_artist.render(artist, True, WHITE)
             screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 200))
@@ -130,9 +121,8 @@ def run_player_screen(screen, test_mode=False):
             screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
 
         # Renderowanie ikony play/pause
-        current_active_state = get_active_state()
-        logger.debug(f"Active state (icon): {current_active_state}")
-        if current_active_state:
+        logger.debug(f"Active state (icon): {active_state}")
+        if active_state:
             screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
         else:
             screen.blit(play_icon, (CENTER_X - play_icon.get_width() // 2, CENTER_Y - play_icon.get_height() // 2))
@@ -140,7 +130,7 @@ def run_player_screen(screen, test_mode=False):
         pygame.display.flip()
         clock.tick(30)
 
-    pygame.quit()
+    return None
 
 def draw_cover_art(screen, cover_path, screen_width, screen_height):
     try:
