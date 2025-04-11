@@ -8,7 +8,15 @@ import requests
 import io
 import cairosvg
 import locale
+import logging
 from datetime import datetime, time as dt_time
+
+# Konfiguracja logowania
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+)
+logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -221,13 +229,13 @@ def run_clock_screen(screen, test_mode=False):
             not weather_data_loaded or (time.time() - last_weather_check > 900)):
             wtxt, wicon = get_weather_data(city, API_KEY)
             if wtxt and wicon:
-                print("[DEBUG] Pogoda załadowana")
+                logger.debug("Pogoda załadowana")
                 weather_text = wtxt
                 weather_icon = wicon
                 weather_data_loaded = True
                 last_weather_check = time.time()
             else:
-                print("[DEBUG] Brak pogody – spróbuję później")
+                logger.debug("Brak pogody – spróbuję później")
             last_weather_try = time.time()
         now_dt = datetime.now()
         now_time = time.time()
@@ -383,6 +391,7 @@ def run_clock_screen(screen, test_mode=False):
         # Obsługa zdarzeń
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                logger.debug("Zamknięcie aplikacji")
                 running = False
             elif event.type == pygame.FINGERDOWN:
                 start_y = event.y * HEIGHT
