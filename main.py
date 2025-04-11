@@ -30,6 +30,8 @@ def signal_handler(signum, frame):
     global running
     logger.debug(f"Otrzymano sygnał {signum}")
     running = False
+    # Rzucamy wyjątek KeyboardInterrupt, aby przerwać główną pętlę
+    raise KeyboardInterrupt()
 
 def start_shairport_listener():
     """Uruchamia listener Shairport w osobnym wątku."""
@@ -109,7 +111,7 @@ def main():
             clock.tick(30)
             
     except KeyboardInterrupt:
-        logger.debug("Otrzymano KeyboardInterrupt")
+        logger.debug("Otrzymano KeyboardInterrupt - zamykanie aplikacji")
     except Exception as e:
         logger.error(f"Błąd w głównej pętli: {e}")
     finally:
