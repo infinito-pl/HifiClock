@@ -14,6 +14,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Ścieżki do plików
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+STATE_FILE = os.path.join(BASE_DIR, "state", "playback_state.json")
+DEFAULT_COVER = os.path.join(BASE_DIR, "assets", "images", "cover.png")
+PIPE_PATH = "/tmp/shairport-sync-metadata"
+COVER_CACHE_DIR = "/tmp/shairport-sync/.cache/coverart"
+
 # Global variables for metadata tracking
 last_title = last_artist = last_album = last_cover = None
 active_state = False
@@ -25,11 +32,6 @@ last_metadata = {
     "album": "",
     "cover": DEFAULT_COVER
 }
-
-PIPE_PATH = "/tmp/shairport-sync-metadata"
-COVER_CACHE_DIR = "/tmp/shairport-sync/.cache/coverart"
-STATE_FILE = "/tmp/shairport_state.json"
-DEFAULT_COVER = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "images", "cover.png")
 
 def get_latest_cover():
     """Znajduje najnowszą okładkę w katalogu cache."""
