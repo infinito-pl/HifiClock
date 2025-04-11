@@ -183,9 +183,8 @@ def read_shairport_metadata():
     global last_title, last_artist, last_album, last_cover, active_state, should_switch_to_player, should_switch_to_clock
 
     logger.debug("Starting read_shairport_metadata")
-    start_time = time.time()  # Timeout handling
-
-    while time.time() - start_time < 5.0:
+    
+    while True:  # Nieskończona pętla
         try:
             logger.debug("Opening pipe for reading")
             proc = subprocess.Popen(
@@ -226,17 +225,14 @@ def read_shairport_metadata():
                         last_title, last_artist, last_album, last_cover = title, artist, album, cover_path
                         logger.debug("Metadata updated")
 
-                # Timeout after a set period
-                if time.time() - start_time > 5.0:
-                    logger.debug("Timeout reached, breaking loop")
-                    break
-
             proc.terminate()
             logger.debug("Process terminated")
 
         except Exception as e:
             logger.error(f"Error in reading shairport metadata: {e}")
-        time.sleep(1)  # Zmniejszony czas oczekiwania do 1 sekundy
+            time.sleep(1)  # Czekaj sekundę przed ponowną próbą
+            continue  # Kontynuuj pętlę po błędzie
+
     logger.debug("Exiting read_shairport_metadata")
 
 def should_switch_to_player_screen():
@@ -261,6 +257,4 @@ def reset_switch_flags():
 # Main function to start the listener
 if __name__ == "__main__":
     logger.debug("Starting shairport listener")
-    while True:
-        read_shairport_metadata()
-        time.sleep(1)
+    read_shairport_metadata()  # Uruchom bezpośrednio, bez dodatkowej pętli
