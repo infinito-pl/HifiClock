@@ -2,75 +2,101 @@ import os
 import sys
 import pygame
 import threading
+import time
+from threading import Lock
 from assets.screens.clock import run_clock_screen
 from assets.screens.player import run_player_screen
+from services.shairport_listener import get_current_track_info_shairport
 
-should_switch_to_player = False  # Flaga do przełączania na ekran player
-should_switch_to_clock = False   # Flaga do przełączania na ekran zegara
+class MetadataManager:
+    def __init__(self):
+        self.metadata = {
+            "title": None,
+            "artist": None,
+            "album": None,
+            "cover_path": None,
+            "active_state": False
+        }
+        self.lock = Lock()
+        self.running = True
 
-def load_metadata():
-    """Funkcja, która będzie odpowiedzialna za pobieranie metadanych w tle."""
-    title, artist, album, cover_path = get_current_track_info_shairport()
-    return title, artist, album, cover_path
+    def start(self):
+        """Start the background thread to fetch metadata."""
+        threading.Thread(target=self._fetch_metadata_loop, daemon=True).start()
 
-def get_current_track_info_shairport():
-    # Mock function to emulate getting track info from Shairport
-    # Replace this with actual implementation
-    return None, None, None, None
+    def stop(self):
+        """Stop the metadata fetching thread."""
+        self.running = False
+
+    def get_metadata(self):
+        """Get a snapshot of the current metadata."""
+        with self.lock:
+            return self.metadata.copy()
+
+    def _fetch_metadata_loop(self):
+        """Continuously fetch metadata in a background thread."""
+        while self.running:
+            title, artist, album, cover_path = get_current_track_info_shairport()
+            with self.lock:
+                prev_active = self.metadata["active_state"]
+                self.metadata.update({
+                    "title": title,
+                    "artist": artist,
+                    "album": album,
+                    "cover_path": cover_path,
+                    "active_state": bool(title and artist and album)  # Active if metadata is present
+                })
+                # Log state changes
+                if prev_active != self.metadata["active_state"]:
+                    print(f"[DEBUG] Active state changed to: {self.metadata['active_state']}")
+            time.sleep(1)  # Adjust polling frequency as needed
 
 def main():
-    global should_switch_to_player, should_switch_to_clock
-
     pygame.init()
     pygame.mixer.quit()
 
     test_mode = "--test" in sys.argv
-    if test_mode:
-        screen = pygame.display.set_mode((800, 800))
-    else:
-        screen = pygame.display.set_mode((800, 800), pygame.FULLSCREEN)
+    screen = pygame.display.set_mode((800, 800), pygame.FULLSCREEN if not test_mode else 0)
 
     print("Current SDL driver:", pygame.display.get_driver())
 
+    # Initialize metadata manager
+    metadata_manager = MetadataManager()
+    metadata_manager.start()
+
     current_screen = "clock"
-    last_playing_status = None  # Zmienna do monitorowania stanu odtwarzania
 
     while True:
-        # Uruchamiamy pobieranie metadanych w tle
-        title, artist, album, cover_path = load_metadata()
+        metadata = metadata_manager.get_metadata()
+        is_playing = metadata["active_state"]
 
-        if should_switch_to_player:
-            print("[DEBUG] Changing to player screen...")
+        # Switch to player screen when playback starts
+        if is_playing and current_screen != "player":
+            print("[DEBUG] Switching to player screen...")
             current_screen = "player"
-            should_switch_to_player = False  # Resetujemy flagę po przełączeniu
-
-        if should_switch_to_clock:
-            print("[DEBUG] Changing to clock screen...")
+        # Switch to clock screen when playback stops
+        elif not is_playing and current_screen != "clock":
+            print("[DEBUG] Switching to clock screen...")
             current_screen = "clock"
-            should_switch_to_clock = False  # Resetujemy flagę po przełączeniu
 
         if current_screen == "clock":
             result = run_clock_screen(screen, test_mode=test_mode)
             if result == "player":
-                should_switch_to_player = True  # Ustawiamy flagę do przełączenia na player
-            else:
+                current_screen = "player"
+            elif result is None:
                 break
         elif current_screen == "player":
-            result = run_player_screen(screen, test_mode=test_mode)
+            result = run_player_screen(screen, metadata, test_mode=test_mode)
             if result == "clock":
-                should_switch_to_clock = True  # Ustawiamy flagę do przełączenia na clock
-            elif title is None or artist is None:  # Sprawdzenie, czy muzyka jest zatrzymana
-                should_switch_to_clock = True  # Po zakończeniu połączenia przechodzimy na zegar
-            else:
-                # Muzyka wciąż odtwarzana
-                last_playing_status = (title, artist, album, cover_path)
-                continue
+                current_screen = "clock"
+            elif result is None:
+                break
 
-    # Wyczyść ekran przed wyjściem
+    # Clean up
     screen.fill((0, 0, 0))
     pygame.display.flip()
     pygame.time.delay(200)
-
+    metadata_manager.stop()
     pygame.quit()
     sys.exit()
 
