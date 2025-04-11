@@ -103,38 +103,40 @@ def get_current_track_info_shairport():
     try:
         proc = subprocess.Popen(
             ["shairport-sync-metadata-reader"],
+            stdin=open(PIPE_PATH, "rb"),
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             text=True,
-            encoding='utf-8',
-            errors='replace'  # Zastąp nieprawidłowe znaki
+            bufsize=1
         )
-        stdout, stderr = proc.communicate(timeout=1)
         
-        if stderr:
-            logger.error(f"Błąd shairport-sync-metadata-reader: {stderr}")
-            return None, None, None, None
-            
-        if not stdout:
-            logger.debug("Brak danych z shairport-sync-metadata-reader")
-            return None, None, None, None
-            
-        # Przetwarzaj dane
+        # Inicjalizacja zmiennych
         title = None
         artist = None
         album = None
         cover_path = None
         
-        for line in stdout.split('\n'):
-            if "Title:" in line:
-                title = line.split("Title:")[1].strip()
-            elif "Artist:" in line:
-                artist = line.split("Artist:")[1].strip()
-            elif "Album:" in line:
-                album = line.split("Album:")[1].strip()
-            elif "Cover Art:" in line:
-                cover_path = line.split("Cover Art:")[1].strip()
+        for line in proc.stdout:
+            line = line.strip()
+            logger.debug(f"Received line: {line}")
+            
+            if line.startswith("Title:"):
+                title = line.split(': "', 1)[1].strip('".')
+                logger.debug(f"Extracted Title: {title}")
+            elif line.startswith("Artist:"):
+                artist = line.split(': "', 1)[1].strip('".')
+                logger.debug(f"Extracted Artist: {artist}")
+            elif line.startswith("Album Name:"):
+                album = line.split(': "', 1)[1].strip('".')
+                logger.debug(f"Extracted Album: {album}")
+            elif "Picture received" in line and "length" in line:
+                cover_path = get_latest_cover()
+                logger.debug(f"Cover path set to: {cover_path}")
+            if title and artist and album:  # Jeśli wszystkie metadane są dostępne, zakończ pętlę
+                break
                 
+        proc.terminate()
+        
         if not any([title, artist, album]):
             logger.debug("Brak metadanych w odpowiedzi")
             return None, None, None, None
@@ -172,10 +174,6 @@ def get_current_track_info_shairport():
         logger.debug(f"Metadata: Title={title}, Artist={artist}, Album={album}, Cover={last_cover}")
         return title, artist, album, last_cover
         
-    except subprocess.TimeoutExpired:
-        logger.error("Timeout podczas pobierania metadanych")
-        proc.kill()
-        return None, None, None, None
     except Exception as e:
         logger.error(f"Błąd podczas pobierania metadanych: {e}")
         return None, None, None, None
