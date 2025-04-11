@@ -102,8 +102,10 @@ def main():
                     logger.debug(f"Nowy ekran: {current_screen}")
             
             # Uruchom odpowiedni ekran
+            logger.debug(f"Uruchamiam ekran: {current_screen}")
             if current_screen == "clock":
                 next_screen = run_clock_screen(screen)
+                logger.debug(f"run_clock_screen zwrócił: {next_screen}")
                 if next_screen == "player":
                     logger.debug("=== Przełączanie na ekran odtwarzacza przez gest ===")
                     current_screen = "player"
@@ -111,6 +113,7 @@ def main():
                     logger.debug(f"Nowy ekran: {current_screen}")
             else:
                 next_screen = run_player_screen(screen)
+                logger.debug(f"run_player_screen zwrócił: {next_screen}")
                 if next_screen == "clock":
                     logger.debug("=== Przełączanie na ekran zegara przez gest ===")
                     current_screen = "clock"
