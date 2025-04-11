@@ -7,7 +7,7 @@ import cairosvg
 import io
 import logging
 import json
-from config import COLORS, FONTS, ICONS, DEFAULT_COVER, SCREEN_WIDTH, SCREEN_HEIGHT, ICON_PATHS
+from config import COLORS, FONTS, ICONS, DEFAULT_COVER, SCREEN_WIDTH, SCREEN_HEIGHT
 from ui.screens.base import BaseScreen
 from utils.logging import logger
 from services.metadata.shairport import get_current_track_info
