@@ -84,12 +84,15 @@ def run_player_screen(screen, test_mode=False):
                 running = False
             elif event.type == pygame.FINGERDOWN:
                 start_y = event.y * HEIGHT
+                logger.debug(f"FINGERDOWN: y={start_y}")
             elif event.type == pygame.FINGERUP and start_y is not None:
                 end_y = event.y * HEIGHT
-                delta_y = start_y - end_y  # Zmiana na odwrócony gest
+                delta_y = start_y - end_y
+                logger.debug(f"FINGERUP: start_y={start_y}, end_y={end_y}, delta_y={delta_y}")
                 if delta_y > SWIPE_THRESHOLD:
+                    logger.debug("Wykryto gest swipa w górę, przełączam na zegar")
                     pygame.event.clear()
-                    return "clock"  # Przechodzimy do zegarka
+                    return "clock"
                 start_y = None
 
         screen.fill(BACKGROUND_COLOR)
@@ -113,9 +116,6 @@ def run_player_screen(screen, test_mode=False):
         artist = truncate_text(artist)
         album = truncate_text(album)
         title = truncate_text(title)
-
-        # Sprawdzenie stanu odtwarzania (czy jest utwór odtwarzany)
-      
 
         if artist:
             artist_surface = font_artist.render(artist, True, WHITE)
