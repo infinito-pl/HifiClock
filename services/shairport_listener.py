@@ -3,6 +3,8 @@ import subprocess
 import time
 import logging
 import json
+import shutil
+import glob
 from services.musicbrainz_cover import fetch_and_cache_cover
 
 # Konfiguracja logowania
@@ -19,9 +21,29 @@ should_switch_to_player = False
 should_switch_to_clock = False
 
 PIPE_PATH = "/tmp/shairport-sync-metadata"
-TMP_COVER = "/tmp/cover.jpg"  # or .png, magic number check is done during parsing
+COVER_CACHE_DIR = "/tmp/shairport-sync/.cache/coverart"
 STATE_FILE = "/tmp/shairport_state.json"
 DEFAULT_COVER = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "images", "cover.png")
+
+def get_latest_cover():
+    """Znajduje najnowszą okładkę w katalogu cache."""
+    try:
+        covers = glob.glob(os.path.join(COVER_CACHE_DIR, "cover-*.jpg"))
+        if covers:
+            latest_cover = max(covers, key=os.path.getctime)
+            logger.debug(f"Found latest cover: {latest_cover}")
+            return latest_cover
+    except Exception as e:
+        logger.error(f"Error finding latest cover: {e}")
+    return None
+
+def init_cover_cache():
+    """Inicjalizuje katalog cache na okładki."""
+    try:
+        os.makedirs(COVER_CACHE_DIR, exist_ok=True)
+        logger.debug(f"Created cover cache directory: {COVER_CACHE_DIR}")
+    except Exception as e:
+        logger.error(f"Error creating cover cache directory: {e}")
 
 def init_state_file():
     if not os.path.exists(STATE_FILE):
@@ -105,7 +127,7 @@ def get_current_track_info_shairport():
                     album = line.split(': "', 1)[1].strip('".')
                     logger.debug(f"Extracted Album: {album}")
                 elif "Picture received" in line and "length" in line:
-                    cover_path = "/tmp/shairport-sync/.cache/coverart/last_cover.png"
+                    cover_path = get_latest_cover()
                     logger.debug(f"Cover path set to: {cover_path}")
                 if title and artist and album:  # Jeśli wszystkie metadane są dostępne, zakończ pętlę
                     break
