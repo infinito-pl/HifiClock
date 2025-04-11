@@ -106,6 +106,7 @@ def main():
             if next_screen:
                 logger.debug(f"Ekran zwrócił następny ekran: {next_screen}")
                 current_screen = next_screen
+                reset_switch_flags()  # Resetuj flagi przed przejściem do nowego ekranu
                 logger.debug(f"Nowy ekran: {current_screen}")
             
             clock.tick(30)
