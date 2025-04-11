@@ -42,9 +42,9 @@ def load_and_render_svg(file_path, width, height):
 class PlayerScreen(BaseScreen):
     def __init__(self, screen):
         super().__init__(screen)
-        self.font_artist = pygame.font.Font(None, 36)
-        self.font_album = pygame.font.Font(None, 32)
-        self.font_title = pygame.font.Font(None, 48)
+        self.font_artist = pygame.font.Font(FONTS["REGULAR"], 36)
+        self.font_album = pygame.font.Font(FONTS["REGULAR"], 32)
+        self.font_title = pygame.font.Font(FONTS["BOLD"], 48)
         self.play_icon = self.load_icon(ICONS["PLAY"])
         self.pause_icon = self.load_icon(ICONS["PAUSE"])
         self.cover_image = None
@@ -93,17 +93,17 @@ class PlayerScreen(BaseScreen):
             title, artist, album, _ = self.current_metadata
             
             if artist:
-                artist_surface = self.font_artist.render(artist, True, (255, 255, 255))
+                artist_surface = self.font_artist.render(artist, True, COLORS["WHITE"])
                 artist_rect = artist_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 150))
                 self.screen.blit(artist_surface, artist_rect)
             
             if album:
-                album_surface = self.font_album.render(album, True, (200, 200, 200))
+                album_surface = self.font_album.render(album, True, COLORS["LIGHT_GRAY"])
                 album_rect = album_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 180))
                 self.screen.blit(album_surface, album_rect)
             
             if title:
-                title_surface = self.font_title.render(title, True, (255, 255, 255))
+                title_surface = self.font_title.render(title, True, COLORS["WHITE"])
                 title_rect = title_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 220))
                 self.screen.blit(title_surface, title_rect)
         

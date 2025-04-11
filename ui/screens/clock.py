@@ -40,7 +40,7 @@ class ClockScreen(BaseScreen):
         self.last_hourglass_flip = time.time()
         
         # Ładujemy plik 00d.svg (klepsydra)
-        self.hourglass_icon = self.load_svg_icon("00d.svg")
+        self.hourglass_icon = self.load_svg_icon("00d.svg", 62, 48)
         
         # Inicjalizacja danych pogodowych
         self.weather_data = None
@@ -50,23 +50,23 @@ class ClockScreen(BaseScreen):
         # Ustawienie lokalizacji dla formatowania daty
         locale.setlocale(locale.LC_TIME, "en_US.UTF-8")
 
-    def load_svg_icon(self, filename):
-        """Ładuje plik SVG i zwraca go jako pygame.Surface"""
+    def load_svg_icon(self, svg_filename, w=62, h=48):
+        """Ładuje plik .svg i zwraca go jako pygame.Surface"""
+        path = os.path.join(ICONS_DIR, svg_filename)
         try:
-            path = os.path.join(ICONS_DIR, filename)
             with open(path, "rb") as svg_file:
                 svg_data = svg_file.read()
             png_data = cairosvg.svg2png(
                 bytestring=svg_data,
-                output_width=62,
-                output_height=48
+                output_width=w,
+                output_height=h
             )
             surf = pygame.image.load(io.BytesIO(png_data)).convert_alpha()
             return surf
         except Exception as e:
-            logger.error(f"Błąd ładowania ikony {filename}: {e}")
-            fallback = pygame.Surface((62, 48))
-            fallback.fill(COLORS["GRAY"])
+            logger.error(f"Błąd ładowania ikony {svg_filename}: {e}")
+            fallback = pygame.Surface((w, h))
+            fallback.fill((200, 200, 200))
             return fallback
 
     def load_weather_icon(self, code):
@@ -81,26 +81,21 @@ class ClockScreen(BaseScreen):
             "50n": "50d"
         }
         
+        # Użyj mapowania fallback jeśli jest dostępne
+        actual_code = fallback_map.get(code, code)
+        
         # Jeśli mamy ikonę w cache, zwróć ją
-        if code in self.icon_cache:
-            return self.icon_cache[code]
+        if actual_code in self.icon_cache:
+            return self.icon_cache[actual_code]
             
         # Jeśli nie mamy ikony, spróbuj załadować
         try:
-            # Najpierw spróbuj załadować oryginalną ikonę
-            icon = self.load_svg_icon(f"{code}.svg")
-            self.icon_cache[code] = icon
+            icon = self.load_svg_icon(f"{actual_code}.svg")
+            self.icon_cache[actual_code] = icon
             return icon
         except Exception as e:
-            # Jeśli nie udało się załadować, spróbuj użyć fallback
-            fallback_code = fallback_map.get(code, "00d")
-            try:
-                icon = self.load_svg_icon(f"{fallback_code}.svg")
-                self.icon_cache[code] = icon
-                return icon
-            except Exception as e:
-                # Jeśli i to się nie udało, zwróć klepsydrę
-                return self.hourglass_icon
+            logger.error(f"Błąd ładowania ikony pogodowej {actual_code}: {e}")
+            return self.hourglass_icon
 
     def update(self):
         """Aktualizuje stan ekranu"""

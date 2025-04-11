@@ -5,6 +5,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UI_DIR = os.path.join(BASE_DIR, "ui")
 COMPONENTS_DIR = os.path.join(UI_DIR, "components")
 ICONS_DIR = os.path.join(COMPONENTS_DIR, "icons")
+IMAGES_DIR = os.path.join(COMPONENTS_DIR, "images")
 FONTS_DIR = os.path.join(COMPONENTS_DIR, "fonts")
 
 # Ustawienia ekranu
@@ -44,7 +45,7 @@ COLORS = {
 FONTS = {
     "REGULAR": os.path.join(FONTS_DIR, "Barlow-Regular.ttf"),
     "BOLD": os.path.join(FONTS_DIR, "Barlow-Bold.ttf"),
-    "MEDIUM": os.path.join(FONTS_DIR, "Barlow-Regular.ttf")  # Używamy Regular zamiast Medium, bo nie mamy Medium
+    "MEDIUM": os.path.join(FONTS_DIR, "Barlow-Regular.ttf")  # Używamy Regular zamiast Medium
 }
 
 # Ikony
@@ -56,4 +57,4 @@ ICONS = {
 }
 
 # Domyślna okładka
-DEFAULT_COVER = os.path.join(BASE_DIR, "assets", "images", "default_cover.jpg") 
+DEFAULT_COVER = os.path.join(IMAGES_DIR, "default_cover.jpg") 
