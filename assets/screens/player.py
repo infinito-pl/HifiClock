@@ -103,9 +103,7 @@ def run_player_screen(screen, test_mode=False):
         if not cover_path or not os.path.isfile(cover_path):
             cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
 
-        cover_image = pygame.image.load(cover_path)
-        cover_image = pygame.transform.scale(cover_image, (WIDTH, HEIGHT))
-        screen.blit(cover_image, (0, 0))
+        draw_cover_art(screen, cover_path, WIDTH, HEIGHT)
 
         overlay = pygame.Surface((WIDTH, HEIGHT))
         overlay.set_alpha(128)
@@ -143,3 +141,18 @@ def run_player_screen(screen, test_mode=False):
         clock.tick(30)
 
     pygame.quit()
+
+def draw_cover_art(screen, cover_path, screen_width, screen_height):
+    try:
+        if cover_path and os.path.exists(cover_path):
+            cover = pygame.image.load(cover_path)
+            cover = pygame.transform.scale(cover, (screen_width, screen_height))
+            cover.set_alpha(int(0.4 * 255))  # Zmniejszamy opacity z 0.5 do 0.4
+            screen.blit(cover, (0, 0))
+    except Exception as e:
+        logger.error(f"Error loading cover art: {e}")
+        # W przypadku błędu, wyświetl domyślną okładkę
+        default_cover = pygame.image.load(os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "images", "cover.png"))
+        default_cover = pygame.transform.scale(default_cover, (screen_width, screen_height))
+        default_cover.set_alpha(int(0.4 * 255))  # To samo opacity dla domyślnej okładki
+        screen.blit(default_cover, (0, 0))
