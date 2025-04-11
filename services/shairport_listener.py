@@ -81,7 +81,16 @@ def save_state():
             json.dump(state, f)
         logger.debug(f"State saved: {state}")
 
+def init_global_state():
+    """Inicjalizuje zmienne globalne."""
+    global active_state, should_switch_to_player, should_switch_to_clock
+    active_state = False
+    should_switch_to_player = False
+    should_switch_to_clock = False
+    logger.debug("Zainicjalizowano zmienne globalne")
+
 def load_state():
+    """Ładuje stan z pliku."""
     global active_state, should_switch_to_player, should_switch_to_clock
     try:
         with open(STATE_FILE, 'r') as f:
@@ -93,9 +102,11 @@ def load_state():
             logger.debug(f"State loaded: {state}")
     except (FileNotFoundError, json.JSONDecodeError) as e:
         logger.error(f"Error loading state: {e}")
+        init_global_state()
         init_state_file()
 
-# Inicjalizacja pliku stanu przy starcie
+# Inicjalizacja pliku stanu i zmiennych globalnych przy starcie
+init_global_state()
 init_state_file()
 
 def get_current_track_info_shairport():

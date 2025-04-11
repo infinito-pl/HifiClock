@@ -13,7 +13,8 @@ from services.shairport_listener import (
     should_switch_to_clock_screen,
     reset_switch_flags,
     read_shairport_metadata,
-    load_state
+    load_state,
+    update_state
 )
 
 # Konfiguracja logowania
