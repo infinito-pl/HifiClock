@@ -67,12 +67,19 @@ class PlayerScreen(BaseScreen):
                 self.cover_image = pygame.image.load(cover_path)
                 self.cover_image = pygame.transform.scale(self.cover_image, (300, 300))
             else:
+                logger.warning(f"Okładka {cover_path} nie istnieje, używam domyślnej")
                 self.cover_image = pygame.image.load(DEFAULT_COVER)
                 self.cover_image = pygame.transform.scale(self.cover_image, (300, 300))
         except Exception as e:
             logger.error(f"Błąd ładowania okładki {cover_path}: {e}")
-            self.cover_image = pygame.image.load(DEFAULT_COVER)
-            self.cover_image = pygame.transform.scale(self.cover_image, (300, 300))
+            try:
+                self.cover_image = pygame.image.load(DEFAULT_COVER)
+                self.cover_image = pygame.transform.scale(self.cover_image, (300, 300))
+            except Exception as e:
+                logger.error(f"Błąd ładowania domyślnej okładki: {e}")
+                # Tworzymy pustą powierzchnię jako fallback
+                self.cover_image = pygame.Surface((300, 300))
+                self.cover_image.fill(COLORS["DARK_GRAY"])
 
     def update(self):
         """Aktualizuje stan ekranu."""
