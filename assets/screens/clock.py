@@ -415,7 +415,7 @@ def run_clock_screen(screen, test_mode=False):
                 end_y = event.y * HEIGHT
                 delta_y = end_y - start_y
                 print(f"[DEBUG]  FINGER swipe delta_y={delta_y:.2f}, start_y={start_y:.2f}, end_y={end_y:.2f}")
-                if delta_y > SWIPE_THRESHOLD:
+                if delta_y > HEIGHT * SWIPE_THRESHOLD:
                     print("[DEBUG]  SWIPE FINGER => switch to player")
                     pygame.event.clear()
                     return "player"

@@ -27,10 +27,15 @@ def get_active_state():
         return False
 
 try:
-    from services.shairport_listener import get_current_track_info_shairport
+    # Próbujemy zaimportować metadane z main.py
+    import main
 except ImportError:
-    def get_current_track_info_shairport():
-        return (None, None, None, None)
+    # Fallback do bezpośredniego importu jeśli main nie jest dostępny
+    try:
+        from services.shairport_listener import get_current_track_info_shairport
+    except ImportError:
+        def get_current_track_info_shairport():
+            return (None, None, None, None)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -84,17 +89,32 @@ def run_player_screen(screen, test_mode=False):
                 running = False
             elif event.type == pygame.FINGERDOWN:
                 start_y = event.y * HEIGHT
+                logger.debug(f"FINGERDOWN  x={event.x:.3f}, y={event.y:.3f}")
             elif event.type == pygame.FINGERUP and start_y is not None:
                 end_y = event.y * HEIGHT
                 delta_y = start_y - end_y  # Zmiana na odwrócony gest
-                if delta_y > SWIPE_THRESHOLD:
+                logger.debug(f"FINGERUP    x={event.x:.3f}, y={event.y:.3f}")
+                logger.debug(f" FINGER swipe delta_y={delta_y:.2f}, start_y={start_y:.2f}, end_y={end_y:.2f}")
+                
+                if delta_y > HEIGHT * SWIPE_THRESHOLD:
+                    logger.debug(" SWIPE FINGER => switch to clock")
                     pygame.event.clear()
                     return "clock"  # Przechodzimy do zegarka
                 start_y = None
 
         screen.fill(BACKGROUND_COLOR)
 
-        title, artist, album, cover_path = get_current_track_info_shairport()
+        # Pobranie metadanych z głównego modułu lub bezpośrednio
+        try:
+            import main
+            title = main.global_title
+            artist = main.global_artist
+            album = main.global_album
+            cover_path = main.global_cover_path
+            is_playing = main.global_is_playing
+        except (ImportError, AttributeError):
+            # Fallback - bezpośrednie pobieranie metadanych
+            title, artist, album, cover_path = get_current_track_info_shairport()
         
         if not any([title, artist, album]):
             title = " "
@@ -113,9 +133,6 @@ def run_player_screen(screen, test_mode=False):
         artist = truncate_text(artist)
         album = truncate_text(album)
         title = truncate_text(title)
-
-        # Sprawdzenie stanu odtwarzania (czy jest utwór odtwarzany)
-      
 
         if artist:
             artist_surface = font_artist.render(artist, True, WHITE)
