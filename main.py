@@ -19,7 +19,7 @@ should_switch_to_player = False  # Flaga do przełączania na ekran player
 should_switch_to_clock = False   # Flaga do przełączania na ekran zegara
 current_metadata = (None, None, None, None)  # Aktualne metadane
 
-def metadata_thread():
+def update_metadata():
     """Wątek do obsługi metadanych Shairport."""
     global current_metadata
     while True:
@@ -48,7 +48,7 @@ def main():
     logger.debug(f"Używany sterownik SDL: {pygame.display.get_driver()}")
 
     # Uruchom wątek metadanych
-    metadata_thread = threading.Thread(target=metadata_thread, daemon=True)
+    metadata_thread = threading.Thread(target=update_metadata, daemon=True)
     metadata_thread.start()
 
     current_screen = "clock"
