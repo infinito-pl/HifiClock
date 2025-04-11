@@ -39,7 +39,7 @@ def run_player_screen(screen, test_mode=False):
     CENTER_Y = HEIGHT // 2
 
     SWIPE_THRESHOLD = 0.25
-    start_y = None  # początkowa pozycja swipa
+    start_y = None
 
     clock = pygame.time.Clock()
     running = True
@@ -94,6 +94,8 @@ def run_player_screen(screen, test_mode=False):
             album != last_album or cover_path != last_cover or 
             current_active_state != last_active_state):
 
+            logger.debug(f"Aktualizacja ekranu: title={title}, artist={artist}, album={album}, cover={cover_path}, active={current_active_state}")
+
             if not any([title, artist, album]):
                 title = " "
                 artist = " "
@@ -125,7 +127,6 @@ def run_player_screen(screen, test_mode=False):
                 screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
 
             # Renderowanie ikony play/pause
-            logger.debug(f"Active state (icon): {current_active_state}")
             if current_active_state:
                 screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
             else:
@@ -149,9 +150,9 @@ def draw_cover_art(screen, cover_path, screen_width, screen_height):
             cover.set_alpha(int(0.4 * 255))  # Zmniejszamy opacity z 0.5 do 0.4
             screen.blit(cover, (0, 0))
     except Exception as e:
-        logger.error(f"Error loading cover art: {e}")
+        logger.error(f"Błąd podczas ładowania okładki: {e}")
         # W przypadku błędu, wyświetl domyślną okładkę
-        default_cover = pygame.image.load(os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "images", "cover.png"))
+        default_cover = pygame.image.load(os.path.join(BASE_DIR, "assets", "images", "cover.png"))
         default_cover = pygame.transform.scale(default_cover, (screen_width, screen_height))
         default_cover.set_alpha(int(0.4 * 255))  # To samo opacity dla domyślnej okładki
         screen.blit(default_cover, (0, 0))

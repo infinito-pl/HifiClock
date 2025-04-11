@@ -6,6 +6,8 @@ import json
 import shutil
 import glob
 from services.musicbrainz_cover import fetch_and_cache_cover
+import threading
+from pathlib import Path
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -24,6 +26,22 @@ PIPE_PATH = "/tmp/shairport-sync-metadata"
 COVER_CACHE_DIR = "/tmp/shairport-sync/.cache/coverart"
 STATE_FILE = "/tmp/shairport_state.json"
 DEFAULT_COVER = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "images", "cover.png")
+
+# Ścieżki do plików
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+STATE_FILE = os.path.join(BASE_DIR, "state", "playback_state.json")
+DEFAULT_COVER = os.path.join(BASE_DIR, "assets", "images", "cover.png")
+
+# Zmienne globalne
+active_state = False
+should_switch_to_player = False
+should_switch_to_clock = False
+last_metadata = {
+    "title": "",
+    "artist": "",
+    "album": "",
+    "cover": DEFAULT_COVER
+}
 
 def get_latest_cover():
     """Znajduje najnowszą okładkę w katalogu cache."""
@@ -58,27 +76,31 @@ def init_state_file():
         logger.debug("State file initialized with default values")
 
 def save_state():
-    state = {
-        "active_state": active_state,
-        "should_switch_to_player": should_switch_to_player,
-        "should_switch_to_clock": should_switch_to_clock
-    }
-    with open(STATE_FILE, 'w') as f:
-        json.dump(state, f)
-    logger.debug(f"State saved: {state}")
+    """Zapisuje aktualny stan odtwarzania do pliku."""
+    try:
+        state = {
+            "active": active_state,
+            "metadata": last_metadata
+        }
+        os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+        with open(STATE_FILE, "w") as f:
+            json.dump(state, f)
+        logger.debug(f"Zapisano stan: {state}")
+    except Exception as e:
+        logger.error(f"Błąd podczas zapisywania stanu: {e}")
 
 def load_state():
-    global active_state, should_switch_to_player, should_switch_to_clock
+    """Wczytuje stan odtwarzania z pliku."""
     try:
-        with open(STATE_FILE, 'r') as f:
-            state = json.load(f)
-            active_state = state.get("active_state", False)
-            should_switch_to_player = state.get("should_switch_to_player", False)
-            should_switch_to_clock = state.get("should_switch_to_clock", False)
-            logger.debug(f"State loaded: {state}")
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        logger.error(f"Error loading state: {e}")
-        init_state_file()
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, "r") as f:
+                state = json.load(f)
+                global active_state, last_metadata
+                active_state = state.get("active", False)
+                last_metadata = state.get("metadata", last_metadata)
+                logger.debug(f"Wczytano stan: {state}")
+    except Exception as e:
+        logger.error(f"Błąd podczas wczytywania stanu: {e}")
 
 # Inicjalizacja pliku stanu przy starcie
 init_state_file()
@@ -98,126 +120,68 @@ def update_play_pause_icon():
 
 # Function to read and fetch metadata from shairport-sync-metadata-reader
 def get_current_track_info_shairport():
-    global last_title, last_artist, last_album, last_cover
+    """Zwraca informacje o aktualnie odtwarzanym utworze."""
+    return (
+        last_metadata["title"],
+        last_metadata["artist"],
+        last_metadata["album"],
+        last_metadata["cover"]
+    )
 
-    title = artist = album = cover_path = None
-    logger.debug("Starting to fetch track info from shairport-sync-metadata-reader.")
-    start_time = time.time()
-
-    while time.time() - start_time < 5.0:  # Dłuższy czas na próbę pobrania metadanych
-        try:
-            proc = subprocess.Popen(
-                ["/usr/local/bin/shairport-sync-metadata-reader"],
-                stdin=open(PIPE_PATH, "rb"),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                text=True,
-                bufsize=1
-            )
-
-            for line in proc.stdout:
-                line = line.strip()
-                logger.debug(f"Received line: {line}")
-
-                if line.startswith("Title:"):
-                    title = line.split(': "', 1)[1].strip('".')
-                    logger.debug(f"Extracted Title: {title}")
-                elif line.startswith("Artist:"):
-                    artist = line.split(': "', 1)[1].strip('".')
-                    logger.debug(f"Extracted Artist: {artist}")
-                elif line.startswith("Album Name:"):
-                    album = line.split(': "', 1)[1].strip('".')
-                    logger.debug(f"Extracted Album: {album}")
-                elif "Picture received" in line and "length" in line:
-                    cover_path = get_latest_cover()
-                    logger.debug(f"Cover path set to: {cover_path}")
-                if title and artist and album:  # Jeśli wszystkie metadane są dostępne, zakończ pętlę
-                    break
-            proc.terminate()
-
-            if title and artist and album:
-                break  # Metadane pobrane, zakończ próbę
-
-        except Exception as e:
-            logger.error(f"Failed to retrieve metadata: {e}")
-            return None, None, None, None
-
-    # Jeśli mamy nową okładkę z Shairport, używamy jej
-    if cover_path and os.path.isfile(cover_path):
-        last_cover = cover_path
-        logger.debug(f"Using cover from Shairport: {cover_path}")
-    # Jeśli nie mamy nowej okładki, ale mamy poprzednią z Shairport, używamy jej
-    elif last_cover and os.path.isfile(last_cover) and "shairport-sync" in last_cover:
-        logger.debug(f"Using previous cover from Shairport: {last_cover}")
-    # Jeśli nie mamy okładki z Shairport, próbujemy MusicBrainz
-    else:
-        last_cover = None
-        logger.debug("No cover found from Shairport, trying MusicBrainz")
-        if title and artist and album:
-            cover_path = fetch_and_cache_cover(artist, album)
-            if cover_path:
-                logger.debug(f"Found cover from MusicBrainz: {cover_path}")
-                last_cover = cover_path
-            else:
-                logger.debug("No cover found in MusicBrainz, using default cover")
-                last_cover = DEFAULT_COVER
-        else:
-            logger.debug("No metadata available, using default cover")
-            last_cover = DEFAULT_COVER
-
-    last_title = title
-    last_artist = artist
-    last_album = album
-
-    logger.debug(f"Metadata: Title={title}, Artist={artist}, Album={album}, Cover={last_cover}")
-    return title, artist, album, last_cover
-
-# Function to listen to shairport state and control UI changes
 def read_shairport_metadata():
-    global active_state, should_switch_to_player, should_switch_to_clock
-    logger.debug("Starting read_shairport_metadata")
+    """Odczytuje metadane z Shairport w pętli."""
+    global active_state, should_switch_to_player, should_switch_to_clock, last_metadata
     
-    while True:  # Nieskończona pętla
+    # Inicjalizacja stanu
+    load_state()
+    
+    # Ścieżka do pliku metadanych Shairport
+    metadata_file = "/tmp/shairport-sync-metadata"
+    
+    while True:
         try:
-            logger.debug("Opening pipe for reading")
-            with open(PIPE_PATH, "rb") as pipe:
-                logger.debug("Pipe opened successfully")
-                proc = subprocess.Popen(
-                    ["/usr/local/bin/shairport-sync-metadata-reader"],
-                    stdin=pipe,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL,
-                    text=True,
-                    bufsize=1
-                )
-                logger.debug("Process started successfully")
-
-                for line in proc.stdout:
-                    line = line.strip()
-                    logger.debug(f"Processing line: {line}")
-
-                    if "Play" in line or "Resume" in line:
-                        logger.debug("Play/Resume event detected")
-                        active_state = True
-                        should_switch_to_player = True
-                        should_switch_to_clock = False
-                        save_state()
-                        logger.debug(f"State updated: active_state={active_state}, should_switch_to_player={should_switch_to_player}")
-                    elif "Pause" in line or "Stop" in line or "Exit Active State" in line:
-                        logger.debug("Pause/Stop/Exit event detected")
-                        active_state = False
-                        should_switch_to_player = False
-                        should_switch_to_clock = True
-                        save_state()
-                        logger.debug(f"State updated: active_state={active_state}, should_switch_to_player={should_switch_to_player}")
-
-                logger.debug("Process terminated")
-                proc.terminate()
-
+            if not os.path.exists(metadata_file):
+                logger.debug("Oczekiwanie na plik metadanych...")
+                time.sleep(1)
+                continue
+                
+            with open(metadata_file, "r") as f:
+                metadata = json.load(f)
+                
+            # Aktualizacja stanu odtwarzania
+            new_active_state = metadata.get("state", {}).get("play_state") == "playing"
+            
+            if new_active_state != active_state:
+                active_state = new_active_state
+                if active_state:
+                    should_switch_to_player = True
+                    should_switch_to_clock = False
+                else:
+                    should_switch_to_player = False
+                    should_switch_to_clock = True
+                logger.debug(f"Zmiana stanu odtwarzania: {active_state}")
+            
+            # Aktualizacja metadanych
+            new_metadata = {
+                "title": metadata.get("item", {}).get("title", ""),
+                "artist": metadata.get("item", {}).get("artist", ""),
+                "album": metadata.get("item", {}).get("album", ""),
+                "cover": metadata.get("item", {}).get("cover", DEFAULT_COVER)
+            }
+            
+            if new_metadata != last_metadata:
+                last_metadata = new_metadata
+                logger.debug(f"Nowe metadane: {new_metadata}")
+            
+            # Zapisanie stanu
+            save_state()
+            
         except Exception as e:
-            logger.error(f"Error in read_shairport_metadata: {e}")
-            time.sleep(1)  # Czekamy sekundę przed ponowną próbą
-            continue  # Kontynuujemy pętlę
+            logger.error(f"Błąd podczas odczytu metadanych: {e}")
+            time.sleep(1)
+            continue
+            
+        time.sleep(0.5)  # Krótszy interwał sprawdzania
 
 def get_active_state():
     """Zwraca aktualny stan odtwarzania."""
