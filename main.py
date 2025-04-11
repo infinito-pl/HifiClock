@@ -2,6 +2,7 @@ import os
 import sys
 import pygame
 import logging
+import threading
 from assets.screens.clock import run_clock_screen
 from assets.screens.player import run_player_screen
 from services.shairport_listener import (
@@ -9,7 +10,8 @@ from services.shairport_listener import (
     active_state,
     should_switch_to_player_screen,
     should_switch_to_clock_screen,
-    reset_switch_flags
+    reset_switch_flags,
+    read_shairport_metadata
 )
 
 # Konfiguracja logowania
@@ -19,9 +21,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def start_shairport_listener():
+    """Uruchamia listener Shairport w osobnym wątku."""
+    thread = threading.Thread(target=read_shairport_metadata, daemon=True)
+    thread.start()
+    logger.debug("Shairport listener started in background thread")
+
 def main():
     pygame.init()
-    pygame.mixer.quit()
+    pygame.mixer.quit() #Pygame nie blokuje karty muzycznej dla Shairport i Mopidy
     pygame.mouse.set_visible(False)
     
     # Ustawienie trybu pełnoekranowego
@@ -30,6 +38,9 @@ def main():
     
     # Inicjalizacja zegara
     clock = pygame.time.Clock()
+    
+    # Uruchom listener Shairport w tle
+    start_shairport_listener()
     
     # Początkowy ekran
     current_screen = "clock"
