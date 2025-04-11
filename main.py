@@ -6,7 +6,7 @@ import time
 import logging
 from assets.screens.clock import run_clock_screen
 from assets.screens.player import run_player_screen
-from services.shairport_listener import get_current_track_info_shairport
+from services.shairport_listener import get_current_track_info_shairport, read_shairport_metadata
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -17,9 +17,24 @@ logger = logging.getLogger(__name__)
 
 should_switch_to_player = False  # Flaga do przełączania na ekran player
 should_switch_to_clock = False   # Flaga do przełączania na ekran zegara
+current_metadata = (None, None, None, None)  # Aktualne metadane
+
+def metadata_thread():
+    """Wątek do obsługi metadanych Shairport."""
+    global current_metadata
+    while True:
+        try:
+            # Sprawdź stan odtwarzania
+            read_shairport_metadata()
+            # Pobierz metadane
+            current_metadata = get_current_track_info_shairport()
+            time.sleep(1)  # Czekaj sekundę przed następnym sprawdzeniem
+        except Exception as e:
+            logger.error(f"Błąd w wątku metadanych: {e}")
+            time.sleep(1)
 
 def main():
-    global should_switch_to_player, should_switch_to_clock
+    global should_switch_to_player, should_switch_to_clock, current_metadata
 
     pygame.init()
     pygame.mixer.quit()
@@ -32,6 +47,10 @@ def main():
 
     logger.debug(f"Używany sterownik SDL: {pygame.display.get_driver()}")
 
+    # Uruchom wątek metadanych
+    metadata_thread = threading.Thread(target=metadata_thread, daemon=True)
+    metadata_thread.start()
+
     current_screen = "clock"
     last_check_time = time.time()
     CHECK_INTERVAL = 1  # Sprawdzaj co sekundę
@@ -42,7 +61,7 @@ def main():
         # Sprawdź stan odtwarzania co określony interwał
         if current_time - last_check_time >= CHECK_INTERVAL:
             last_check_time = current_time
-            title, artist, album, cover_path = get_current_track_info_shairport()
+            title, artist, album, cover_path = current_metadata
             
             # Jeśli mamy dane o utworze i jesteśmy na ekranie zegara
             if title and artist and current_screen == "clock":
@@ -76,7 +95,7 @@ def main():
                 elif result == "quit":
                     break
             else:
-                result = run_player_screen(screen, test_mode=test_mode)
+                result = run_player_screen(screen, test_mode=test_mode, metadata=current_metadata)
                 if result == "clock":
                     should_switch_to_clock = True
                 elif result == "quit":

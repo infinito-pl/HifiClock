@@ -44,7 +44,8 @@ def load_and_render_svg(file_path, width, height):
     icon_image = pygame.transform.scale(icon_image, (width, height))
     return icon_image
 
-def run_player_screen(screen, test_mode=False):
+def run_player_screen(screen, test_mode=False, metadata=(None, None, None, None)):
+    """Uruchamia ekran odtwarzacza."""
     WIDTH, HEIGHT = 800, 800
     CENTER_X = WIDTH // 2
     CENTER_Y = HEIGHT // 2
@@ -78,6 +79,14 @@ def run_player_screen(screen, test_mode=False):
     
     is_playing = False  # Zmienna do kontrolowania stanu odtwarzania
 
+    # Pobierz metadane z parametru
+    title, artist, album, cover_path = metadata
+    
+    # Jeśli nie mamy metadanych, spróbuj pobrać je z Shairport
+    if not title or not artist:
+        logger.debug("Brak metadanych, próbuję pobrać z Shairport")
+        title, artist, album, cover_path = get_current_track_info_shairport()
+    
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -96,15 +105,6 @@ def run_player_screen(screen, test_mode=False):
                 start_y = None
 
         screen.fill(BACKGROUND_COLOR)
-
-        title, artist, album, cover_path = get_current_track_info_shairport()
-        
-        if not any([title, artist, album]):
-            title = " "
-            artist = " "
-            album = " "
-        if not cover_path or not os.path.isfile(cover_path):
-            cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
 
         draw_cover_art(screen, cover_path, WIDTH, HEIGHT)
 
