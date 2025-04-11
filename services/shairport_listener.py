@@ -186,61 +186,72 @@ def read_shairport_metadata():
     logger.debug("Starting read_shairport_metadata")
     start_time = time.time()  # Timeout handling
 
-    while time.time() - start_time < 5.0:
-        try:
-            logger.debug("Opening pipe for reading")
-            proc = subprocess.Popen(
-                ["/usr/local/bin/shairport-sync-metadata-reader"],
-                stdin=open(PIPE_PATH, "rb"),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                text=True,
-                bufsize=1
-            )
+    try:
+        # Sprawdź czy pipe istnieje
+        if not os.path.exists(PIPE_PATH):
+            logger.error(f"Pipe {PIPE_PATH} does not exist")
+            return
+
+        # Otwórz pipe w trybie non-blocking
+        with open(PIPE_PATH, 'rb', buffering=0) as pipe:
             logger.debug("Pipe opened successfully")
-
-            for line in proc.stdout:
-                line = line.strip()
-                logger.debug(f"Processing line: {line}")
-
-                if "Enter Active State" in line or "Play -- first frame received" in line or "Resume" in line:
-                    logger.debug("Detected play/resume event")
-                    active_state = True
-                    logger.debug(f"Setting active_state to {active_state}")
-                    should_switch_to_player = True
-                    should_switch_to_clock = False
-                    save_state()
-                    logger.debug("Shairport entered active state")
-
-                elif "Exit Active State" in line or "Pause" in line or "Stop" in line:
-                    logger.debug("Detected pause/stop event")
-                    active_state = False
-                    logger.debug(f"Setting active_state to {active_state}")
-                    should_switch_to_player = False
-                    should_switch_to_clock = True
-                    save_state()
-                    logger.debug("Shairport exited active state")
-
-                # Regularly fetch metadata when active
-                if active_state:
-                    logger.debug("Active state is True, fetching metadata")
-                    title, artist, album, cover_path = get_current_track_info_shairport()
-                    if title != last_title or artist != last_artist or album != last_album:
-                        last_title, last_artist, last_album, last_cover = title, artist, album, cover_path
-                        logger.debug("Metadata updated")
-
-                # Timeout after a set period
-                if time.time() - start_time > 5.0:
-                    logger.debug("Timeout reached, breaking loop")
+            
+            # Ustaw timeout na odczyt
+            pipe_fd = pipe.fileno()
+            import fcntl
+            fcntl.fcntl(pipe_fd, fcntl.F_SETFL, os.O_NONBLOCK)
+            
+            # Próbuj czytać przez 5 sekund
+            while time.time() - start_time < 5.0:
+                try:
+                    # Próbuj czytać dane
+                    data = pipe.read(1024)
+                    if data:
+                        lines = data.decode('utf-8').split('\n')
+                        for line in lines:
+                            line = line.strip()
+                            if not line:
+                                continue
+                                
+                            logger.debug(f"Received line: {line}")
+                            
+                            # Obsługa stanu odtwarzania
+                            if "Pause" in line:
+                                active_state = False
+                                logger.debug("Playback paused")
+                                save_state()
+                            elif "Play" in line:
+                                active_state = True
+                                logger.debug("Playback started")
+                                save_state()
+                            
+                            # Obsługa metadanych
+                            if line.startswith("Title:"):
+                                last_title = line.split(': "', 1)[1].strip('".')
+                            elif line.startswith("Artist:"):
+                                last_artist = line.split(': "', 1)[1].strip('".')
+                            elif line.startswith("Album Name:"):
+                                last_album = line.split(': "', 1)[1].strip('".')
+                            
+                            # Jeśli mamy wszystkie metadane, możemy zakończyć
+                            if last_title and last_artist and last_album:
+                                break
+                    
+                    # Krótka przerwa między próbami odczytu
+                    time.sleep(0.1)
+                    
+                except BlockingIOError:
+                    # Brak danych do odczytu, kontynuuj
+                    time.sleep(0.1)
+                    continue
+                except Exception as e:
+                    logger.error(f"Error reading from pipe: {e}")
                     break
-
-            proc.terminate()
-            logger.debug("Process terminated")
-
-        except Exception as e:
-            logger.error(f"Error in reading shairport metadata: {e}")
-        time.sleep(3)  # Wait for 3 seconds before the next attempt
-    logger.debug("Exiting read_shairport_metadata")
+                    
+    except Exception as e:
+        logger.error(f"Error in read_shairport_metadata: {e}")
+    finally:
+        logger.debug("Finished read_shairport_metadata")
 
 # Main function to start the listener
 if __name__ == "__main__":
