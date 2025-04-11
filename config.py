@@ -35,6 +35,8 @@ COLORS = {
     "RED": (255, 0, 0),
     "GREEN": (0, 255, 0),
     "BLUE": (0, 0, 255),
+    "BACKGROUND": (30, 30, 30),
+    "SEMI_BLACK": (0, 0, 0, 128)
 }
 
 # Czcionki
