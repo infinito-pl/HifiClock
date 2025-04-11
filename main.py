@@ -64,6 +64,7 @@ def main():
     # Ustawienie trybu pełnoekranowego
     screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
     WIDTH, HEIGHT = screen.get_size()
+    logger.debug(f"Utworzono ekran o rozmiarze: {WIDTH}x{HEIGHT}")
     
     # Inicjalizacja zegara
     clock = pygame.time.Clock()
@@ -104,6 +105,7 @@ def main():
             # Uruchom odpowiedni ekran
             logger.debug(f"Uruchamiam ekran: {current_screen}")
             if current_screen == "clock":
+                logger.debug("=== Wywołuję run_clock_screen ===")
                 next_screen = run_clock_screen(screen)
                 logger.debug(f"run_clock_screen zwrócił: {next_screen}")
                 if next_screen == "player":
@@ -112,6 +114,7 @@ def main():
                     reset_switch_flags()
                     logger.debug(f"Nowy ekran: {current_screen}")
             else:
+                logger.debug("=== Wywołuję run_player_screen ===")
                 next_screen = run_player_screen(screen)
                 logger.debug(f"run_player_screen zwrócił: {next_screen}")
                 if next_screen == "clock":
