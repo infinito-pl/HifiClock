@@ -106,7 +106,6 @@ def get_current_track_info_shairport():
             stdin=open(PIPE_PATH, "rb"),
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            text=True,
             bufsize=1
         )
         
@@ -117,23 +116,28 @@ def get_current_track_info_shairport():
         cover_path = None
         
         for line in proc.stdout:
-            line = line.strip()
-            logger.debug(f"Received line: {line}")
-            
-            if line.startswith("Title:"):
-                title = line.split(': "', 1)[1].strip('".')
-                logger.debug(f"Extracted Title: {title}")
-            elif line.startswith("Artist:"):
-                artist = line.split(': "', 1)[1].strip('".')
-                logger.debug(f"Extracted Artist: {artist}")
-            elif line.startswith("Album Name:"):
-                album = line.split(': "', 1)[1].strip('".')
-                logger.debug(f"Extracted Album: {album}")
-            elif "Picture received" in line and "length" in line:
-                cover_path = get_latest_cover()
-                logger.debug(f"Cover path set to: {cover_path}")
-            if title and artist and album:  # Jeśli wszystkie metadane są dostępne, zakończ pętlę
-                break
+            try:
+                # Dekodowanie linii z obsługą błędów
+                line = line.decode('utf-8', errors='replace').strip()
+                logger.debug(f"Received line: {line}")
+                
+                if line.startswith("Title:"):
+                    title = line.split(': "', 1)[1].strip('".')
+                    logger.debug(f"Extracted Title: {title}")
+                elif line.startswith("Artist:"):
+                    artist = line.split(': "', 1)[1].strip('".')
+                    logger.debug(f"Extracted Artist: {artist}")
+                elif line.startswith("Album Name:"):
+                    album = line.split(': "', 1)[1].strip('".')
+                    logger.debug(f"Extracted Album: {album}")
+                elif "Picture received" in line and "length" in line:
+                    cover_path = get_latest_cover()
+                    logger.debug(f"Cover path set to: {cover_path}")
+                if title and artist and album:  # Jeśli wszystkie metadane są dostępne, zakończ pętlę
+                    break
+            except Exception as e:
+                logger.error(f"Error processing line: {e}")
+                continue
                 
         proc.terminate()
         
@@ -180,81 +184,42 @@ def get_current_track_info_shairport():
 
 # Function to listen to shairport state and control UI changes
 def read_shairport_metadata():
-    global last_title, last_artist, last_album, last_cover, active_state, should_switch_to_player, should_switch_to_clock
-
-    logger.debug("Starting read_shairport_metadata")
-    start_time = time.time()  # Timeout handling
-
+    """Czyta metadane z shairport-sync-metadata-reader."""
+    logger.debug("Starting to read metadata from shairport-sync-metadata-reader.")
     try:
-        # Sprawdź czy pipe istnieje
-        if not os.path.exists(PIPE_PATH):
-            logger.error(f"Pipe {PIPE_PATH} does not exist")
-            return
-
-        # Otwórz pipe w trybie non-blocking
-        with open(PIPE_PATH, 'rb', buffering=0) as pipe:
-            logger.debug("Pipe opened successfully")
-            
-            # Ustaw timeout na odczyt
-            pipe_fd = pipe.fileno()
-            import fcntl
-            fcntl.fcntl(pipe_fd, fcntl.F_SETFL, os.O_NONBLOCK)
-            
-            # Próbuj czytać przez 5 sekund
-            while time.time() - start_time < 5.0:
-                try:
-                    # Próbuj czytać dane
-                    data = pipe.read(1024)
-                    if data:
-                        lines = data.decode('utf-8').split('\n')
-                        for line in lines:
-                            line = line.strip()
-                            if not line:
-                                continue
-                                
-                            logger.debug(f"Received line: {line}")
-                            
-                            # Obsługa stanu odtwarzania
-                            if "Enter Active State" in line or "Play -- first frame received" in line or "Resume" in line:
-                                active_state = True
-                                should_switch_to_player = True
-                                should_switch_to_clock = False
-                                logger.debug("Playback started, switching to player")
-                                save_state()
-                            elif "Exit Active State" in line or "Pause" in line or "Stop" in line:
-                                active_state = False
-                                should_switch_to_player = False
-                                should_switch_to_clock = True
-                                logger.debug("Playback stopped, switching to clock")
-                                save_state()
-                            
-                            # Obsługa metadanych
-                            if line.startswith("Title:"):
-                                last_title = line.split(': "', 1)[1].strip('".')
-                            elif line.startswith("Artist:"):
-                                last_artist = line.split(': "', 1)[1].strip('".')
-                            elif line.startswith("Album Name:"):
-                                last_album = line.split(': "', 1)[1].strip('".')
-                            
-                            # Jeśli mamy wszystkie metadane, możemy zakończyć
-                            if last_title and last_artist and last_album:
-                                break
-                    
-                    # Krótka przerwa między próbami odczytu
-                    time.sleep(0.1)
-                    
-                except BlockingIOError:
-                    # Brak danych do odczytu, kontynuuj
-                    time.sleep(0.1)
-                    continue
-                except Exception as e:
-                    logger.error(f"Error reading from pipe: {e}")
-                    break
-                    
+        proc = subprocess.Popen(
+            ["shairport-sync-metadata-reader"],
+            stdin=open(PIPE_PATH, "rb"),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            bufsize=1
+        )
+        
+        for line in proc.stdout:
+            try:
+                # Dekodowanie linii z obsługą błędów
+                line = line.decode('utf-8', errors='replace').strip()
+                logger.debug(f"Received line: {line}")
+                
+                if "Picture received" in line and "length" in line:
+                    logger.debug("New cover art received")
+                    update_cover_art()
+                elif "Play" in line:
+                    logger.debug("Playback started")
+                    update_state("play")
+                elif "Pause" in line:
+                    logger.debug("Playback paused")
+                    update_state("pause")
+                elif "Stop" in line:
+                    logger.debug("Playback stopped")
+                    update_state("stop")
+            except Exception as e:
+                logger.error(f"Error processing line: {e}")
+                continue
+                
+        proc.terminate()
     except Exception as e:
         logger.error(f"Error in read_shairport_metadata: {e}")
-    finally:
-        logger.debug("Finished read_shairport_metadata")
 
 # Main function to start the listener
 if __name__ == "__main__":
