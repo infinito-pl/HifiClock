@@ -57,7 +57,7 @@ def run_clock_screen(screen, test_mode=False):
     weather_icon.fill((255, 255, 255))
     icon_cache = {}
 
-    # Klepsydra (00d.svg) do animowania przy braku danych pogodowych 
+    # Klepsydra (00d.svg) do animowania przy braku danych pogodowych
     hourglass_icon = None
     hourglass_angle = 0.0
     hourglass_flip_interval = 3.0
@@ -415,7 +415,7 @@ def run_clock_screen(screen, test_mode=False):
                 end_y = event.y * HEIGHT
                 delta_y = end_y - start_y
                 print(f"[DEBUG]  FINGER swipe delta_y={delta_y:.2f}, start_y={start_y:.2f}, end_y={end_y:.2f}")
-                if delta_y > HEIGHT * SWIPE_THRESHOLD:
+                if delta_y > SWIPE_THRESHOLD:
                     print("[DEBUG]  SWIPE FINGER => switch to player")
                     pygame.event.clear()
                     return "player"
