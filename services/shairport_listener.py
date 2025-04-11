@@ -3,6 +3,7 @@ import subprocess
 import time
 import logging
 import json
+from services.musicbrainz_cover import fetch_and_cache_cover
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -20,6 +21,7 @@ should_switch_to_clock = False
 PIPE_PATH = "/tmp/shairport-sync-metadata"
 TMP_COVER = "/tmp/cover.jpg"  # or .png, magic number check is done during parsing
 STATE_FILE = "/tmp/shairport_state.json"
+DEFAULT_COVER = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "images", "cover.png")
 
 def init_state_file():
     if not os.path.exists(STATE_FILE):
@@ -121,14 +123,25 @@ def get_current_track_info_shairport():
         logger.debug(f"Found cover: {cover_path}")
     else:
         last_cover = None
-        logger.debug("No cover found.")
+        logger.debug("No cover found from Shairport, trying MusicBrainz")
+        if title and artist and album:
+            cover_path = fetch_and_cache_cover(artist, album)
+            if cover_path:
+                logger.debug(f"Found cover from MusicBrainz: {cover_path}")
+                last_cover = cover_path
+            else:
+                logger.debug("No cover found in MusicBrainz, using default cover")
+                last_cover = DEFAULT_COVER
+        else:
+            logger.debug("No metadata available, using default cover")
+            last_cover = DEFAULT_COVER
 
     last_title = title
     last_artist = artist
     last_album = album
 
-    logger.debug(f"Metadata: Title={title}, Artist={artist}, Album={album}, Cover={cover_path}")
-    return title, artist, album, cover_path
+    logger.debug(f"Metadata: Title={title}, Artist={artist}, Album={album}, Cover={last_cover}")
+    return title, artist, album, last_cover
 
 # Function to listen to shairport state and control UI changes
 def read_shairport_metadata():
