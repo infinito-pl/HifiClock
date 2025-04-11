@@ -105,6 +105,12 @@ def get_current_track_info_shairport():
     logger.debug("Starting to fetch track info from shairport-sync-metadata-reader.")
     start_time = time.time()
     
+    # Inicjalizacja zmiennych
+    title = None
+    artist = None
+    album = None
+    cover_path = None
+    
     while time.time() - start_time < 5.0:  # Dłuższy czas na próbę pobrania metadanych
         try:
             proc = subprocess.Popen(
@@ -141,6 +147,7 @@ def get_current_track_info_shairport():
                 
         except Exception as e:
             logger.error(f"Failed to retrieve metadata: {e}")
+            return None, None, None, None
     
     # Jeśli mamy nową okładkę z Shairport, używamy jej
     if cover_path and os.path.isfile(cover_path):
