@@ -172,66 +172,76 @@ def get_current_track_info_shairport():
 
 # Function to listen to shairport state and control UI changes
 def read_shairport_metadata():
-    global last_title, last_artist, last_album, last_cover, active_state, should_switch_to_player, should_switch_to_clock
-
+    global active_state, should_switch_to_player, should_switch_to_clock
     logger.debug("Starting read_shairport_metadata")
-    start_time = time.time()  # Timeout handling
-
-    while time.time() - start_time < 5.0:
+    
+    while True:  # Nieskończona pętla
         try:
             logger.debug("Opening pipe for reading")
-            proc = subprocess.Popen(
-                ["/usr/local/bin/shairport-sync-metadata-reader"],
-                stdin=open(PIPE_PATH, "rb"),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                text=True,
-                bufsize=1
-            )
-            logger.debug("Pipe opened successfully")
+            with open(PIPE_PATH, "rb") as pipe:
+                logger.debug("Pipe opened successfully")
+                proc = subprocess.Popen(
+                    ["/usr/local/bin/shairport-sync-metadata-reader"],
+                    stdin=pipe,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                    bufsize=1
+                )
+                logger.debug("Process started successfully")
 
-            for line in proc.stdout:
-                line = line.strip()
-                logger.debug(f"Processing line: {line}")
+                for line in proc.stdout:
+                    line = line.strip()
+                    logger.debug(f"Processing line: {line}")
 
-                if "Enter Active State" in line or "Play -- first frame received" in line or "Resume" in line:
-                    logger.debug("Detected play/resume event")
-                    active_state = True
-                    logger.debug(f"Setting active_state to {active_state}")
-                    should_switch_to_player = True
-                    should_switch_to_clock = False
-                    save_state()
-                    logger.debug("Shairport entered active state")
+                    if "Play" in line or "Resume" in line:
+                        logger.debug("Play/Resume event detected")
+                        active_state = True
+                        should_switch_to_player = True
+                        should_switch_to_clock = False
+                        save_state()
+                        logger.debug("State updated: active_state=True, should_switch_to_player=True")
+                    elif "Pause" in line or "Stop" in line:
+                        logger.debug("Pause/Stop event detected")
+                        active_state = False
+                        should_switch_to_player = False
+                        should_switch_to_clock = True
+                        save_state()
+                        logger.debug("State updated: active_state=False, should_switch_to_player=False")
+                    elif "Exit Active State" in line:
+                        logger.debug("Exit Active State detected")
+                        active_state = False
+                        should_switch_to_player = False
+                        should_switch_to_clock = True
+                        save_state()
+                        logger.debug("State updated: active_state=False, should_switch_to_player=False")
 
-                elif "Exit Active State" in line or "Pause" in line or "Stop" in line:
-                    logger.debug("Detected pause/stop event")
-                    active_state = False
-                    logger.debug(f"Setting active_state to {active_state}")
-                    should_switch_to_player = False
-                    should_switch_to_clock = True
-                    save_state()
-                    logger.debug("Shairport exited active state")
-
-                # Regularly fetch metadata when active
-                if active_state:
-                    logger.debug("Active state is True, fetching metadata")
-                    title, artist, album, cover_path = get_current_track_info_shairport()
-                    if title != last_title or artist != last_artist or album != last_album:
-                        last_title, last_artist, last_album, last_cover = title, artist, album, cover_path
-                        logger.debug("Metadata updated")
-
-                # Timeout after a set period
-                if time.time() - start_time > 5.0:
-                    logger.debug("Timeout reached, breaking loop")
-                    break
-
-            proc.terminate()
-            logger.debug("Process terminated")
+                logger.debug("Process terminated")
+                proc.terminate()
 
         except Exception as e:
-            logger.error(f"Error in reading shairport metadata: {e}")
-        time.sleep(3)  # Wait for 3 seconds before the next attempt
-    logger.debug("Exiting read_shairport_metadata")
+            logger.error(f"Error in read_shairport_metadata: {e}")
+            time.sleep(1)  # Czekamy sekundę przed ponowną próbą
+            continue  # Kontynuujemy pętlę
+
+def get_active_state():
+    """Zwraca aktualny stan odtwarzania."""
+    return active_state
+
+def should_switch_to_player_screen():
+    """Sprawdza czy należy przełączyć się na ekran odtwarzacza."""
+    return should_switch_to_player
+
+def should_switch_to_clock_screen():
+    """Sprawdza czy należy przełączyć się na ekran zegara."""
+    return should_switch_to_clock
+
+def reset_switch_flags():
+    """Resetuje flagi przełączania ekranów."""
+    global should_switch_to_player, should_switch_to_clock
+    should_switch_to_player = False
+    should_switch_to_clock = False
+    save_state()
 
 # Main function to start the listener
 if __name__ == "__main__":
