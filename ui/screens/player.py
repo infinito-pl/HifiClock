@@ -7,7 +7,6 @@ import cairosvg
 import io
 import logging
 import json
-from services.shairport_listener import read_shairport_metadata
 from config import COLORS, FONTS, ICONS, DEFAULT_COVER
 from ui.screens.base import BaseScreen
 from utils.logging import logger
@@ -29,14 +28,6 @@ def get_active_state():
             return state.get("active_state", False)
     except (FileNotFoundError, json.JSONDecodeError):
         return False
-
-try:
-    from services.shairport_listener import get_current_track_info_shairport
-except ImportError:
-    def get_current_track_info_shairport():
-        return (None, None, None, None)
-
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 def truncate_text(text, max_length=30):
     return text if len(text) <= max_length else text[:max_length - 3] + "..."
@@ -151,7 +142,7 @@ def draw_cover_art(screen, cover_path, screen_width, screen_height):
     except Exception as e:
         logger.error(f"Error loading cover art: {e}")
         # W przypadku błędu, wyświetl domyślną okładkę
-        default_cover = pygame.image.load(os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "images", "cover.png"))
+        default_cover = pygame.image.load(DEFAULT_COVER)
         default_cover = pygame.transform.scale(default_cover, (screen_width, screen_height))
         default_cover.set_alpha(int(0.4 * 255))  # To samo opacity dla domyślnej okładki
         screen.blit(default_cover, (0, 0))
