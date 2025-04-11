@@ -19,7 +19,8 @@ SHAIRPORT_STATE_FILE = "/tmp/shairport_state.json"
 
 # Ustawienia pogody
 WEATHER_CACHE_DIR = "/tmp/weather_cache"
-WEATHER_CACHE_TIME = 1800  # 30 minut w sekundach
+WEATHER_CACHE_TIME = 900  # 15 minut w sekundach
+OPENWEATHER_API_KEY = "6fb20261a5785a0f8bf5782d09a1b41d"  # OpenWeather API Key
 
 # Ustawienia logowania
 LOG_LEVEL = "DEBUG"
