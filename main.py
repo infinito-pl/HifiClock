@@ -2,75 +2,112 @@ import os
 import sys
 import pygame
 import threading
+import logging
+import time
+from datetime import datetime
 from assets.screens.clock import run_clock_screen
 from assets.screens.player import run_player_screen
+from services.shairport_listener import get_current_track_info_shairport, read_shairport_metadata
 
-should_switch_to_player = False  # Flaga do przełączania na ekran player
-should_switch_to_clock = False   # Flaga do przełączania na ekran zegara
+# Konfiguracja logowania
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-def load_metadata():
-    """Funkcja, która będzie odpowiedzialna za pobieranie metadanych w tle."""
-    title, artist, album, cover_path = get_current_track_info_shairport()
-    return title, artist, album, cover_path
+# Globalne zmienne dla metadanych
+current_metadata = {
+    'title': None,
+    'artist': None,
+    'album': None,
+    'cover_path': None,
+    'source': None,  # 'shairport' lub 'mopidy'
+    'is_playing': False
+}
 
-def get_current_track_info_shairport():
-    # Mock function to emulate getting track info from Shairport
-    # Replace this with actual implementation
-    return None, None, None, None
+def metadata_thread():
+    """Wątek obsługujący odczyt metadanych z różnych źródeł."""
+    logger.debug("Uruchamiam wątek metadanych")
+    
+    while True:
+        try:
+            # Sprawdzamy Shairport
+            title, artist, album, cover_path = get_current_track_info_shairport()
+            if title or artist or album:
+                current_metadata.update({
+                    'title': title,
+                    'artist': artist,
+                    'album': album,
+                    'cover_path': cover_path,
+                    'source': 'shairport',
+                    'is_playing': True
+                })
+                logger.debug(f"Zaktualizowano metadane z Shairport: {title} - {artist}")
+            
+            # Tutaj później dodamy obsługę Mopidy
+            
+            time.sleep(1)  # Sprawdzamy co sekundę
+            
+        except Exception as e:
+            logger.error(f"Błąd w wątku metadanych: {e}")
+            time.sleep(1)
 
 def main():
-    global should_switch_to_player, should_switch_to_clock
-
+    # Inicjalizacja Pygame
     pygame.init()
-    pygame.mixer.quit()
-
-    test_mode = "--test" in sys.argv
-    if test_mode:
-        screen = pygame.display.set_mode((800, 800))
-    else:
-        screen = pygame.display.set_mode((800, 800), pygame.FULLSCREEN)
-
-    print("Current SDL driver:", pygame.display.get_driver())
-
+    pygame.display.init()
+    pygame.font.init()
+    
+    # Pobierz rozmiar ekranu
+    screen_info = pygame.display.Info()
+    screen_width = screen_info.current_w
+    screen_height = screen_info.current_h
+    
+    # Utwórz okno w trybie pełnoekranowym
+    screen = pygame.display.set_mode((screen_width, screen_height), pygame.FULLSCREEN)
+    pygame.display.set_caption("HifiClock")
+    
+    # Uruchom wątek metadanych
+    metadata_thread = threading.Thread(target=metadata_thread, daemon=True)
+    metadata_thread.start()
+    
+    # Główna pętla aplikacji
     current_screen = "clock"
-    last_playing_status = None  # Zmienna do monitorowania stanu odtwarzania
-
-    while True:
-        # Uruchamiamy pobieranie metadanych w tle
-        title, artist, album, cover_path = load_metadata()
-
-        if should_switch_to_player:
-            print("[DEBUG] Changing to player screen...")
-            current_screen = "player"
-            should_switch_to_player = False  # Resetujemy flagę po przełączeniu
-
-        if should_switch_to_clock:
-            print("[DEBUG] Changing to clock screen...")
-            current_screen = "clock"
-            should_switch_to_clock = False  # Resetujemy flagę po przełączeniu
-
-        if current_screen == "clock":
-            result = run_clock_screen(screen, test_mode=test_mode)
-            if result == "player":
-                should_switch_to_player = True  # Ustawiamy flagę do przełączenia na player
+    running = True
+    
+    while running:
+        try:
+            # Sprawdzamy czy mamy aktywne odtwarzanie
+            if current_metadata['is_playing'] and current_screen == "clock":
+                logger.debug("Wykryto odtwarzanie, przełączam na ekran odtwarzacza")
+                current_screen = "player"
+            elif not current_metadata['is_playing'] and current_screen == "player":
+                logger.debug("Brak odtwarzania, przełączam na ekran zegara")
+                current_screen = "clock"
+            
+            # Uruchom odpowiedni ekran
+            if current_screen == "clock":
+                result = run_clock_screen(screen)
+                if result == "player":
+                    current_screen = "player"
             else:
-                break
-        elif current_screen == "player":
-            result = run_player_screen(screen, test_mode=test_mode)
-            if result == "clock":
-                should_switch_to_clock = True  # Ustawiamy flagę do przełączenia na clock
-            elif title is None or artist is None:  # Sprawdzenie, czy muzyka jest zatrzymana
-                should_switch_to_clock = True  # Po zakończeniu połączenia przechodzimy na zegar
-            else:
-                # Muzyka wciąż odtwarzana
-                last_playing_status = (title, artist, album, cover_path)
-                continue
-
-    # Wyczyść ekran przed wyjściem
-    screen.fill((0, 0, 0))
-    pygame.display.flip()
-    pygame.time.delay(200)
-
+                result = run_player_screen(screen, metadata=current_metadata)
+                if result == "clock":
+                    current_screen = "clock"
+            
+            # Obsługa zdarzeń
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+            
+        except Exception as e:
+            logger.error(f"Błąd w głównej pętli: {e}")
+            time.sleep(1)
+    
     pygame.quit()
     sys.exit()
 

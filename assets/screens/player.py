@@ -8,6 +8,7 @@ import io
 import logging
 import json
 from services.shairport_listener import read_shairport_metadata
+from datetime import datetime
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -44,103 +45,106 @@ def load_and_render_svg(file_path, width, height):
     icon_image = pygame.transform.scale(icon_image, (width, height))
     return icon_image
 
-def run_player_screen(screen, test_mode=False):
-    WIDTH, HEIGHT = 800, 800
-    CENTER_X = WIDTH // 2
-    CENTER_Y = HEIGHT // 2
-
-    SWIPE_THRESHOLD = 0.25
-    start_y = None  # początkowa pozycja swipa
-
-    clock = pygame.time.Clock()
-    running = True
-
-    WHITE      = (255, 255, 255)
-    BLACK      = (0,   0,   0)
-    SEMI_BLACK = (0,   0,   0, 128)
-    BACKGROUND_COLOR = (30, 30, 30)
-
-    font_regular_path = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Regular.ttf")
-    font_bold_path    = os.path.join(BASE_DIR, "assets", "fonts", "Barlow-Bold.ttf")
-
-    if not os.path.isfile(font_regular_path):
-        font_regular_path = pygame.font.get_default_font()
-    if not os.path.isfile(font_bold_path):
-        font_bold_path = pygame.font.get_default_font()
-
-    font_artist = pygame.font.Font(font_bold_path, 50)
-    font_album  = pygame.font.Font(font_regular_path, 30)
-    font_title  = pygame.font.Font(font_regular_path, 50)
-
-    # Załaduj ikony play/pause
-    play_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_play.svg"), 158, 158)
-    pause_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_pause.svg"), 158, 158)
+def run_player_screen(screen, metadata=None):
+    """Ekran odtwarzacza muzyki."""
+    logger.debug("Uruchamiam ekran odtwarzacza")
     
-    is_playing = False  # Zmienna do kontrolowania stanu odtwarzania
-
+    # Pobierz rozmiar ekranu
+    screen_width = screen.get_width()
+    screen_height = screen.get_height()
+    
+    # Załaduj ikony
+    play_icon = pygame.image.load("assets/icons/play.svg")
+    pause_icon = pygame.image.load("assets/icons/pause.svg")
+    
+    # Skaluj ikony do odpowiedniego rozmiaru
+    icon_size = int(screen_height * 0.1)
+    play_icon = pygame.transform.scale(play_icon, (icon_size, icon_size))
+    pause_icon = pygame.transform.scale(pause_icon, (icon_size, icon_size))
+    
+    # Inicjalizacja zmiennych dla gestów
+    start_y = None
+    SWIPE_THRESHOLD = 0.25  # 25% wysokości ekranu
+    
+    # Główna pętla ekranu odtwarzacza
+    running = True
     while running:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.FINGERDOWN:
-                start_y = event.y * HEIGHT
-            elif event.type == pygame.FINGERUP and start_y is not None:
-                end_y = event.y * HEIGHT
-                delta_y = start_y - end_y  # Zmiana na odwrócony gest
-                if delta_y > SWIPE_THRESHOLD:
-                    pygame.event.clear()
-                    return "clock"  # Przechodzimy do zegarka
-                start_y = None
-
-        screen.fill(BACKGROUND_COLOR)
-
-        title, artist, album, cover_path = get_current_track_info_shairport()
-        
-        if not any([title, artist, album]):
-            title = " "
-            artist = " "
-            album = " "
-        if not cover_path or not os.path.isfile(cover_path):
-            cover_path = os.path.join(BASE_DIR, "assets", "images", "cover.png")
-
-        draw_cover_art(screen, cover_path, WIDTH, HEIGHT)
-
-        overlay = pygame.Surface((WIDTH, HEIGHT))
-        overlay.set_alpha(128)
-        overlay.fill((0, 0, 0))
-        screen.blit(overlay, (0, 0))
-
-        artist = truncate_text(artist)
-        album = truncate_text(album)
-        title = truncate_text(title)
-
-        # Sprawdzenie stanu odtwarzania (czy jest utwór odtwarzany)
-      
-
-        if artist:
-            artist_surface = font_artist.render(artist, True, WHITE)
-            screen.blit(artist_surface, (CENTER_X - artist_surface.get_width() // 2, CENTER_Y - 175))
-
-        if album:
-            album_surface = font_album.render(album, True, WHITE)
-            screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 100))
-
-        if title:
-            title_surface = font_title.render(title, True, WHITE)
-            screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
-
-        # Renderowanie ikony play/pause
-        current_active_state = get_active_state()
-        logger.debug(f"Active state (icon): {current_active_state}")
-        if current_active_state:
-            screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
-        else:
-            screen.blit(play_icon, (CENTER_X - play_icon.get_width() // 2, CENTER_Y - play_icon.get_height() // 2))
-
-        pygame.display.flip()
-        clock.tick(30)
-
-    pygame.quit()
+        try:
+            # Sprawdź czy mamy metadane
+            if metadata and metadata.get('title') and metadata.get('artist'):
+                title = metadata['title']
+                artist = metadata['artist']
+                album = metadata.get('album', '')
+                cover_path = metadata.get('cover_path')
+                is_playing = metadata.get('is_playing', False)
+                
+                # Wyświetl informacje o utworze
+                logger.debug(f"Wyświetlam utwór: {title} - {artist}")
+                
+                # Wyczyść ekran
+                screen.fill((0, 0, 0))
+                
+                # Wyświetl okładkę jeśli jest dostępna
+                if cover_path and os.path.exists(cover_path):
+                    try:
+                        cover = pygame.image.load(cover_path)
+                        cover = pygame.transform.scale(cover, (screen_height, screen_height))
+                        screen.blit(cover, (0, 0))
+                    except Exception as e:
+                        logger.error(f"Błąd ładowania okładki: {e}")
+                
+                # Wyświetl tytuł i wykonawcę
+                font = pygame.font.Font(None, int(screen_height * 0.1))
+                title_text = font.render(title, True, (255, 255, 255))
+                artist_text = font.render(artist, True, (200, 200, 200))
+                
+                # Wyśrodkuj tekst
+                title_rect = title_text.get_rect(center=(screen_width/2, screen_height*0.3))
+                artist_rect = artist_text.get_rect(center=(screen_width/2, screen_height*0.4))
+                
+                screen.blit(title_text, title_rect)
+                screen.blit(artist_text, artist_rect)
+                
+                # Wyświetl ikonę play/pause
+                icon = pause_icon if is_playing else play_icon
+                icon_rect = icon.get_rect(center=(screen_width/2, screen_height*0.7))
+                screen.blit(icon, icon_rect)
+                
+            else:
+                # Jeśli nie ma metadanych, wróć do zegara
+                logger.debug("Brak metadanych, wracam do zegara")
+                return "clock"
+            
+            # Obsługa zdarzeń
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return "quit"
+                
+                elif event.type == pygame.FINGERDOWN:
+                    start_y = event.y * screen_height
+                    logger.debug(f"FINGERDOWN  x={event.x:.3f}, y={event.y:.3f}")
+                
+                elif event.type == pygame.FINGERUP and start_y is not None:
+                    end_y = event.y * screen_height
+                    delta_y = end_y - start_y
+                    logger.debug(f"FINGERUP    x={event.x:.3f}, y={event.y:.3f}")
+                    logger.debug(f" FINGER swipe delta_y={delta_y:.2f}, start_y={start_y:.2f}, end_y={end_y:.2f}")
+                    
+                    if abs(delta_y) > screen_height * SWIPE_THRESHOLD:
+                        if delta_y < 0:  # Przesunięcie w górę
+                            logger.debug(" SWIPE FINGER => switch to clock")
+                            return "clock"
+                    
+                    start_y = None
+            
+            pygame.display.flip()
+            pygame.time.delay(30)  # 30 FPS
+            
+        except Exception as e:
+            logger.error(f"Błąd w ekranie odtwarzacza: {e}")
+            return "clock"
+    
+    return "clock"
 
 def draw_cover_art(screen, cover_path, screen_width, screen_height):
     try:
