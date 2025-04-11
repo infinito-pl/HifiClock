@@ -7,7 +7,7 @@ import cairosvg
 import io
 import logging
 import json
-from config import COLORS, FONTS, ICONS, DEFAULT_COVER
+from config import COLORS, FONTS, ICONS, DEFAULT_COVER, SCREEN_WIDTH, SCREEN_HEIGHT, ICON_PATHS
 from ui.screens.base import BaseScreen
 from utils.logging import logger
 from services.metadata.shairport import get_current_track_info
@@ -40,97 +40,103 @@ def load_and_render_svg(file_path, width, height):
     return icon_image
 
 class PlayerScreen(BaseScreen):
-    def __init__(self, screen, test_mode=False):
-        super().__init__(screen, test_mode)
-        self.font_artist = pygame.font.Font(FONTS['BOLD'], 50)
-        self.font_album = pygame.font.Font(FONTS['REGULAR'], 30)
-        self.font_title = pygame.font.Font(FONTS['REGULAR'], 50)
-        
-        # Załaduj ikony
-        self.play_icon = self.load_svg_icon(ICONS['PLAY'], 158, 158)
-        self.pause_icon = self.load_svg_icon(ICONS['PAUSE'], 158, 158)
-        
-        # Inicjalizacja metadanych
-        self.title = self.artist = self.album = None
-        self.cover_path = DEFAULT_COVER
+    def __init__(self, screen):
+        super().__init__(screen)
+        self.font_artist = pygame.font.Font(None, 36)
+        self.font_album = pygame.font.Font(None, 32)
+        self.font_title = pygame.font.Font(None, 48)
+        self.play_icon = self.load_icon(ICON_PATHS["PLAY"])
+        self.pause_icon = self.load_icon(ICON_PATHS["PAUSE"])
         self.cover_image = None
-        self.is_playing = False
+        self.current_metadata = None
 
-    def load_svg_icon(self, file_path, width, height):
-        """Ładuje ikonę SVG."""
+    def load_icon(self, icon_path):
+        """Ładuje ikonę SVG i konwertuje ją na powierzchnię Pygame."""
         try:
-            svg_data = cairosvg.svg2png(url=file_path)
-            icon_image = pygame.image.load(io.BytesIO(svg_data))
-            return pygame.transform.scale(icon_image, (width, height))
+            icon = pygame.image.load(icon_path)
+            icon = pygame.transform.scale(icon, (50, 50))
+            return icon
         except Exception as e:
-            logger.error(f"Błąd ładowania ikony SVG: {e}")
+            logger.error(f"Błąd ładowania ikony {icon_path}: {e}")
             return None
 
-    def load_cover(self):
-        """Ładuje okładkę utworu."""
+    def load_cover(self, cover_path):
+        """Ładuje okładkę albumu."""
         try:
-            if self.cover_path and self.cover_path != DEFAULT_COVER:
-                self.cover_image = pygame.image.load(self.cover_path)
-                self.cover_image = pygame.transform.scale(self.cover_image, (400, 400))
+            if cover_path and os.path.exists(cover_path):
+                self.cover_image = pygame.image.load(cover_path)
+                self.cover_image = pygame.transform.scale(self.cover_image, (300, 300))
             else:
                 self.cover_image = pygame.image.load(DEFAULT_COVER)
-                self.cover_image = pygame.transform.scale(self.cover_image, (400, 400))
+                self.cover_image = pygame.transform.scale(self.cover_image, (300, 300))
         except Exception as e:
-            logger.error(f"Błąd ładowania okładki: {e}")
+            logger.error(f"Błąd ładowania okładki {cover_path}: {e}")
             self.cover_image = pygame.image.load(DEFAULT_COVER)
-            self.cover_image = pygame.transform.scale(self.cover_image, (400, 400))
+            self.cover_image = pygame.transform.scale(self.cover_image, (300, 300))
 
     def update(self):
         """Aktualizuje stan ekranu."""
-        # Pobierz aktualne metadane
         title, artist, album, cover_path = get_current_track_info()
-        
-        # Sprawdź czy metadane się zmieniły
-        if (title != self.title or artist != self.artist or 
-            album != self.album or cover_path != self.cover_path):
-            self.title = title
-            self.artist = artist
-            self.album = album
-            self.cover_path = cover_path
-            self.load_cover()
+        if (title, artist, album, cover_path) != self.current_metadata:
+            self.current_metadata = (title, artist, album, cover_path)
+            self.load_cover(cover_path)
 
     def draw(self):
-        """Rysuje ekran odtwarzacza."""
+        """Rysuje zawartość ekranu."""
         super().draw()
         
-        # Rysuj okładkę
         if self.cover_image:
-            cover_rect = self.cover_image.get_rect(center=(self.width // 2, self.height // 2 - 100))
+            cover_rect = self.cover_image.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50))
             self.screen.blit(self.cover_image, cover_rect)
         
-        # Rysuj metadane
-        if self.artist:
-            artist_text = self.font_artist.render(self.artist, True, COLORS['WHITE'])
-            artist_rect = artist_text.get_rect(center=(self.width // 2, self.height // 2 + 150))
-            self.screen.blit(artist_text, artist_rect)
-        
-        if self.title:
-            title_text = self.font_title.render(self.title, True, COLORS['WHITE'])
-            title_rect = title_text.get_rect(center=(self.width // 2, self.height // 2 + 200))
-            self.screen.blit(title_text, title_rect)
-        
-        if self.album:
-            album_text = self.font_album.render(self.album, True, COLORS['WHITE'])
-            album_rect = album_text.get_rect(center=(self.width // 2, self.height // 2 + 250))
-            self.screen.blit(album_text, album_rect)
+        if self.current_metadata:
+            title, artist, album, _ = self.current_metadata
+            
+            if artist:
+                artist_surface = self.font_artist.render(artist, True, (255, 255, 255))
+                artist_rect = artist_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 150))
+                self.screen.blit(artist_surface, artist_rect)
+            
+            if album:
+                album_surface = self.font_album.render(album, True, (200, 200, 200))
+                album_rect = album_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 180))
+                self.screen.blit(album_surface, album_rect)
+            
+            if title:
+                title_surface = self.font_title.render(title, True, (255, 255, 255))
+                title_rect = title_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 220))
+                self.screen.blit(title_surface, title_rect)
         
         # Rysuj ikonę play/pause
-        icon = self.play_icon if not self.is_playing else self.pause_icon
+        icon = self.play_icon if self.current_metadata and self.current_metadata[3] else self.pause_icon
         if icon:
-            icon_rect = icon.get_rect(center=(self.width // 2, self.height // 2 + 300))
+            icon_rect = icon.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 270))
             self.screen.blit(icon, icon_rect)
 
     def run(self):
-        """Uruchamia ekran odtwarzacza."""
-        result = super().run()
-        if result == "swipe_up":
-            return "clock"
-        return result
+        """Główna pętla ekranu odtwarzacza."""
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return "quit"
+                elif event.type == pygame.FINGERDOWN:
+                    self.start_x = event.x * SCREEN_WIDTH
+                    self.start_y = event.y * SCREEN_HEIGHT
+                elif event.type == pygame.FINGERUP:
+                    end_x = event.x * SCREEN_WIDTH
+                    end_y = event.y * SCREEN_HEIGHT
+                    dx = end_x - self.start_x
+                    dy = end_y - self.start_y
+                    
+                    # Sprawdź gest przesunięcia w górę
+                    if abs(dy) > 50 and dy < 0 and abs(dx) < 50:
+                        return "clock"
+            
+            self.update()
+            self.draw()
+            pygame.display.flip()
+            pygame.time.Clock().tick(60)
 
 def draw_cover_art(screen, cover_path, screen_width, screen_height):
     try:

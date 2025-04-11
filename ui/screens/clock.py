@@ -9,7 +9,7 @@ import io
 import cairosvg
 import locale
 from datetime import datetime, time as dt_time
-from config import COLORS, FONTS
+from config import COLORS, FONTS, SCREEN_WIDTH, SCREEN_HEIGHT, WEATHER_API_KEY, WEATHER_UPDATE_INTERVAL, WEATHER_ICON_SIZE
 from ui.screens.base import BaseScreen
 from utils.logging import logger
 from services.weather.weather import get_weather_data
@@ -30,6 +30,7 @@ class ClockScreen(BaseScreen):
         
         # Załaduj ikonę pogody
         self.weather_icon = None
+        self.weather_icon_path = None
         self.load_weather_icon()
 
     def load_weather_icon(self):
@@ -39,19 +40,35 @@ class ClockScreen(BaseScreen):
             if self.weather_data and 'icon' in self.weather_data:
                 weather_icon_path = f"assets/images/weather/{self.weather_data['icon']}.png"
             self.weather_icon = pygame.image.load(weather_icon_path)
-            self.weather_icon = pygame.transform.scale(self.weather_icon, (100, 100))
+            self.weather_icon = pygame.transform.scale(self.weather_icon, WEATHER_ICON_SIZE)
+            self.weather_icon_path = weather_icon_path
+            logger.debug(f"Loaded weather icon: {weather_icon_path}")
         except Exception as e:
             logger.error(f"Błąd ładowania ikony pogody: {e}")
             self.weather_icon = None
+            self.weather_icon_path = None
 
     def update_weather(self):
         """Aktualizuje dane pogodowe."""
         current_time = time.time()
         if current_time - self.last_weather_update > self.weather_update_interval:
             try:
-                self.weather_data = get_weather_data()
-                self.last_weather_update = current_time
+                # Najpierw pobierz lokalizację
+                location_response = requests.get('http://ip-api.com/json/')
+                location_data = location_response.json()
+                city = location_data.get('city', 'Wroclaw')  # Domyślnie Wrocław
+
+                # Następnie pobierz pogodę
+                weather_url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={WEATHER_API_KEY}&units=metric"
+                response = requests.get(weather_url)
+                self.weather_data = response.json()
+                
+                # Załaduj odpowiednią ikonę
+                icon_code = self.weather_data['weather'][0]['icon']
                 self.load_weather_icon()
+                
+                self.last_weather_update = current_time
+                logger.debug(f"Weather updated for {city}")
             except Exception as e:
                 logger.error(f"Błąd aktualizacji pogody: {e}")
 
