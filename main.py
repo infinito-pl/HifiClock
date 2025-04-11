@@ -39,30 +39,28 @@ def start_shairport_listener():
     logger.debug("Shairport listener started in background thread")
 
 def main():
-    global should_switch_to_player, should_switch_to_clock
-
+    # Inicjalizacja Pygame
     pygame.init()
-    pygame.mixer.quit()
+    pygame.mixer.quit()  # Wyłączamy mixer, aby nie blokować karty dźwiękowej
+    pygame.display.init()
+    pygame.mouse.set_visible(False)
 
-    test_mode = "--test" in sys.argv
-    if test_mode:
-        screen = pygame.display.set_mode((800, 800))
-    else:
-        screen = pygame.display.set_mode((800, 800), pygame.FULLSCREEN)
+    # Pobierz rozmiar ekranu
+    screen_info = pygame.display.Info()
+    WIDTH, HEIGHT = screen_info.current_w, screen_info.current_h
 
-    print("Current SDL driver:", pygame.display.get_driver())
-
-    current_screen = "clock"
-    last_playing_status = None  # Zmienna do monitorowania stanu odtwarzania
+    # Utwórz okno pełnoekranowe
+    screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
+    pygame.display.set_caption("HifiClock")
 
     # Uruchom listener Shairport w tle
     start_shairport_listener()
 
+    # Początkowy ekran
+    current_screen = "clock"
+
     try:
         while True:
-            # Uruchamiamy pobieranie metadanych w tle
-            title, artist, album, cover_path = load_metadata()
-
             # Sprawdź czy należy przełączyć ekran
             if should_switch_to_player_screen() and current_screen == "clock":
                 logger.debug("Switching to player screen")
@@ -73,31 +71,19 @@ def main():
                 current_screen = "clock"
                 reset_switch_flags()
 
+            # Uruchom odpowiedni ekran
             if current_screen == "clock":
-                result = run_clock_screen(screen, test_mode=test_mode)
+                result = run_clock_screen(screen)
                 if result == "player":
-                    should_switch_to_player = True  # Ustawiamy flagę do przełączenia na player
-                else:
-                    break
-            elif current_screen == "player":
-                result = run_player_screen(screen, test_mode=test_mode)
+                    current_screen = "player"
+            else:
+                result = run_player_screen(screen)
                 if result == "clock":
-                    should_switch_to_clock = True  # Ustawiamy flagę do przełączenia na clock
-                elif title is None or artist is None:  # Sprawdzenie, czy muzyka jest zatrzymana
-                    should_switch_to_clock = True  # Po zakończeniu połączenia przechodzimy na zegar
-                else:
-                    # Muzyka wciąż odtwarzana
-                    last_playing_status = (title, artist, album, cover_path)
-                    continue
+                    current_screen = "clock"
 
     except KeyboardInterrupt:
         logger.info("Application terminated by user")
     finally:
-        # Wyczyść ekran przed wyjściem
-        screen.fill((0, 0, 0))
-        pygame.display.flip()
-        pygame.time.delay(200)
-
         pygame.quit()
         sys.exit()
 

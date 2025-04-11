@@ -203,15 +203,8 @@ def read_shairport_metadata():
                         should_switch_to_clock = False
                         save_state()
                         logger.debug(f"State updated: active_state={active_state}, should_switch_to_player={should_switch_to_player}")
-                    elif "Pause" in line or "Stop" in line:
-                        logger.debug("Pause/Stop event detected")
-                        active_state = False
-                        should_switch_to_player = False
-                        should_switch_to_clock = True
-                        save_state()
-                        logger.debug(f"State updated: active_state={active_state}, should_switch_to_player={should_switch_to_player}")
-                    elif "Exit Active State" in line:
-                        logger.debug("Exit Active State detected")
+                    elif "Pause" in line or "Stop" in line or "Exit Active State" in line:
+                        logger.debug("Pause/Stop/Exit event detected")
                         active_state = False
                         should_switch_to_player = False
                         should_switch_to_clock = True
