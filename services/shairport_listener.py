@@ -199,15 +199,24 @@ def read_shairport_metadata():
                     if "Play" in line or "Resume" in line:
                         logger.debug("Play/Resume event detected")
                         active_state = True
-                        update_play_pause_icon()
+                        should_switch_to_player = True
+                        should_switch_to_clock = False
+                        save_state()
+                        logger.debug(f"State updated: active_state={active_state}, should_switch_to_player={should_switch_to_player}")
                     elif "Pause" in line or "Stop" in line:
                         logger.debug("Pause/Stop event detected")
                         active_state = False
-                        update_play_pause_icon()
+                        should_switch_to_player = False
+                        should_switch_to_clock = True
+                        save_state()
+                        logger.debug(f"State updated: active_state={active_state}, should_switch_to_player={should_switch_to_player}")
                     elif "Exit Active State" in line:
                         logger.debug("Exit Active State detected")
                         active_state = False
-                        update_play_pause_icon()
+                        should_switch_to_player = False
+                        should_switch_to_clock = True
+                        save_state()
+                        logger.debug(f"State updated: active_state={active_state}, should_switch_to_player={should_switch_to_player}")
 
                 logger.debug("Process terminated")
                 proc.terminate()

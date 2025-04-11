@@ -7,7 +7,13 @@ import cairosvg
 import io
 import logging
 import json
-from services.shairport_listener import read_shairport_metadata
+from services.shairport_listener import (
+    get_current_track_info_shairport,
+    get_active_state,
+    should_switch_to_player_screen,
+    should_switch_to_clock_screen,
+    reset_switch_flags
+)
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -15,22 +21,6 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
 )
 logger = logging.getLogger(__name__)
-
-STATE_FILE = "/tmp/shairport_state.json"
-
-def get_active_state():
-    try:
-        with open(STATE_FILE, 'r') as f:
-            state = json.load(f)
-            return state.get("active_state", False)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return False
-
-try:
-    from services.shairport_listener import get_current_track_info_shairport
-except ImportError:
-    def get_current_track_info_shairport():
-        return (None, None, None, None)
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
