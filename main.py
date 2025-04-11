@@ -2,7 +2,7 @@ import os
 import sys
 import pygame
 import threading
-from config import SCREEN_WIDTH, SCREEN_HEIGHT
+from config import SCREEN_WIDTH, SCREEN_HEIGHT, COLORS
 from utils.logging import logger
 from ui.screens.clock import ClockScreen
 from ui.screens.player import PlayerScreen
@@ -13,19 +13,17 @@ def main():
         # Inicjalizacja Pygame
         pygame.init()
         pygame.mixer.quit()
+        pygame.mouse.set_visible(False)
         
-        # Ustawienie trybu wyświetlania
-        test_mode = "--test" in sys.argv
-        if test_mode:
-            screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        else:
-            screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
+        # Utwórz ekran
+        screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.FULLSCREEN)
+        pygame.display.set_caption("HifiClock")
         
         logger.info(f"Current SDL driver: {pygame.display.get_driver()}")
         
         # Inicjalizacja ekranów
-        clock_screen = ClockScreen(screen, test_mode)
-        player_screen = PlayerScreen(screen, test_mode)
+        clock_screen = ClockScreen(screen)
+        player_screen = PlayerScreen(screen)
         
         current_screen = "clock"
         last_metadata = None
