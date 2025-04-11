@@ -3,6 +3,7 @@ import sys
 import pygame
 import logging
 import threading
+import signal
 from assets.screens.clock import run_clock_screen
 from assets.screens.player import run_player_screen
 from services.shairport_listener import (
@@ -21,13 +22,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Globalna zmienna do kontroli zamykania aplikacji
+running = True
+
+def signal_handler(signum, frame):
+    """Obsługa sygnałów zamykania aplikacji."""
+    global running
+    logger.debug("Otrzymano sygnał zamykania")
+    running = False
+
 def start_shairport_listener():
     """Uruchamia listener Shairport w osobnym wątku."""
     thread = threading.Thread(target=read_shairport_metadata, daemon=True)
     thread.start()
     logger.debug("Shairport listener started in background thread")
+    return thread
 
 def main():
+    global running
+    
+    # Rejestracja obsługi sygnałów
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     pygame.init()
     pygame.mixer.quit() #Pygame nie blokuje karty muzycznej dla Shairport i Mopidy
     pygame.mouse.set_visible(False)
@@ -40,7 +57,7 @@ def main():
     clock = pygame.time.Clock()
     
     # Uruchom listener Shairport w tle
-    start_shairport_listener()
+    shairport_thread = start_shairport_listener()
     
     # Początkowy ekran
     current_screen = "clock"
@@ -50,8 +67,8 @@ def main():
     check_counter = 0
     CHECK_INTERVAL = 15  # Sprawdzaj co 15 klatek (około 0.5 sekundy przy 30 FPS)
     
-    while True:
-        try:
+    try:
+        while running:
             # Sprawdź stan odtwarzania co określony interwał
             check_counter += 1
             if check_counter >= CHECK_INTERVAL:
@@ -83,10 +100,15 @@ def main():
             
             clock.tick(30)
             
-        except Exception as e:
-            logger.error(f"Błąd w głównej pętli: {e}")
-            pygame.quit()
-            sys.exit(1)
+    except KeyboardInterrupt:
+        logger.debug("Otrzymano KeyboardInterrupt")
+    except Exception as e:
+        logger.error(f"Błąd w głównej pętli: {e}")
+    finally:
+        logger.debug("Zamykanie aplikacji...")
+        running = False
+        pygame.quit()
+        sys.exit(0)
 
 if __name__ == "__main__":
     main()
