@@ -44,10 +44,11 @@ def main():
     
     # Początkowy ekran
     current_screen = "clock"
+    logger.debug(f"Początkowy ekran: {current_screen}")
     
     # Licznik do sprawdzania stanu odtwarzania
     check_counter = 0
-    CHECK_INTERVAL = 30  # Sprawdzaj co 30 klatek (około 1 sekunda przy 30 FPS)
+    CHECK_INTERVAL = 15  # Sprawdzaj co 15 klatek (około 0.5 sekundy przy 30 FPS)
     
     while True:
         try:
@@ -55,19 +56,18 @@ def main():
             check_counter += 1
             if check_counter >= CHECK_INTERVAL:
                 check_counter = 0
-                # Pobierz aktualne informacje o utworze
-                track_info = get_current_track_info_shairport()
-                logger.debug(f"Stan odtwarzania: {active_state}, Track info: {track_info}")
                 
                 # Sprawdź czy należy przełączyć ekran
                 if should_switch_to_player_screen() and current_screen == "clock":
-                    logger.debug("Przełączanie na ekran odtwarzacza")
+                    logger.debug("=== Przełączanie na ekran odtwarzacza ===")
                     current_screen = "player"
                     reset_switch_flags()
+                    logger.debug(f"Nowy ekran: {current_screen}")
                 elif should_switch_to_clock_screen() and current_screen == "player":
-                    logger.debug("Przełączanie na ekran zegara")
+                    logger.debug("=== Przełączanie na ekran zegara ===")
                     current_screen = "clock"
                     reset_switch_flags()
+                    logger.debug(f"Nowy ekran: {current_screen}")
             
             # Uruchom odpowiedni ekran
             if current_screen == "clock":
@@ -77,8 +77,9 @@ def main():
             
             # Jeśli ekran zwrócił następny ekran, przełącz
             if next_screen:
-                logger.debug(f"Przełączanie na ekran: {next_screen}")
+                logger.debug(f"Ekran zwrócił następny ekran: {next_screen}")
                 current_screen = next_screen
+                logger.debug(f"Nowy ekran: {current_screen}")
             
             clock.tick(30)
             
