@@ -123,7 +123,7 @@ def run_player_screen(screen, test_mode=False):
 
         if album:
             album_surface = font_album.render(album, True, WHITE)
-            screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 150))
+            screen.blit(album_surface, (CENTER_X - album_surface.get_width() // 2, CENTER_Y - 140))
 
         if title:
             title_surface = font_title.render(title, True, WHITE)
