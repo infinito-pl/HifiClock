@@ -57,7 +57,7 @@ def run_clock_screen(screen, test_mode=False):
     weather_icon.fill((255, 255, 255))
     icon_cache = {}
 
-    # Klepsydra (00d.svg) do animowania przy braku danych pogodowych
+    # Klepsydra (00d.svg) do animowania przy braku danych pogodowych 
     hourglass_icon = None
     hourglass_angle = 0.0
     hourglass_flip_interval = 3.0

@@ -9,7 +9,7 @@ import pygame
 import logging
 from services.shairport_listener import get_current_track_info_shairport
 
-# Konfiguracja logowania
+# Konfiguracja logowania 
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',

@@ -3,7 +3,7 @@ import requests
 import musicbrainzngs
 from urllib.parse import quote_plus
 
-# Konfiguracja MusicBrainz
+# Konfiguracja MusicBrainz 
 musicbrainzngs.set_useragent("HifiClock", "1.0", "yareckk@gmail.com")
 
 COVER_DIR = os.path.join(os.path.dirname(__file__), "../assets/images")

@@ -7,7 +7,7 @@ import shutil
 import glob
 from services.musicbrainz_cover import fetch_and_cache_cover
 
-# Konfiguracja logowania
+# Konfiguracja logowania 
 logging.basicConfig(
     level=logging.DEBUG,  # Poziom logowania
     format='%(asctime)s - %(levelname)s - %(message)s',

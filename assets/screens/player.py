@@ -14,7 +14,7 @@ from services.shairport_listener import get_current_track_info_shairport
 from utils.svg_loader import load_and_render_svg
 from services.shairport_active import get_active_state
 
-# Konfiguracja logowania
+# Konfiguracja logowania 
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -278,3 +278,4 @@ def draw_cover_art(screen, cover_path, screen_width, screen_height):
         default_cover = pygame.transform.scale(default_cover, (screen_width, screen_height))
         default_cover.set_alpha(int(0.4 * 255))  # To samo opacity dla domyślnej okładki
         screen.blit(default_cover, (0, 0))
+    
