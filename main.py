@@ -1,78 +1,78 @@
 import os
 import sys
 import pygame
-import threading
+import logging
 from assets.screens.clock import run_clock_screen
 from assets.screens.player import run_player_screen
+from services.shairport_listener import (
+    get_current_track_info_shairport,
+    active_state,
+    should_switch_to_player_screen,
+    should_switch_to_clock_screen,
+    reset_switch_flags
+)
 
-should_switch_to_player = False  # Flaga do przełączania na ekran player
-should_switch_to_clock = False   # Flaga do przełączania na ekran zegara
-
-def load_metadata():
-    """Funkcja, która będzie odpowiedzialna za pobieranie metadanych w tle."""
-    title, artist, album, cover_path = get_current_track_info_shairport()
-    return title, artist, album, cover_path
-
-def get_current_track_info_shairport():
-    # Mock function to emulate getting track info from Shairport
-    # Replace this with actual implementation
-    return None, None, None, None
+# Konfiguracja logowania
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+)
+logger = logging.getLogger(__name__)
 
 def main():
-    global should_switch_to_player, should_switch_to_clock
-
     pygame.init()
     pygame.mixer.quit()
-
-    test_mode = "--test" in sys.argv
-    if test_mode:
-        screen = pygame.display.set_mode((800, 800))
-    else:
-        screen = pygame.display.set_mode((800, 800), pygame.FULLSCREEN)
-
-    print("Current SDL driver:", pygame.display.get_driver())
-
+    pygame.mouse.set_visible(False)
+    
+    # Ustawienie trybu pełnoekranowego
+    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+    WIDTH, HEIGHT = screen.get_size()
+    
+    # Inicjalizacja zegara
+    clock = pygame.time.Clock()
+    
+    # Początkowy ekran
     current_screen = "clock"
-    last_playing_status = None  # Zmienna do monitorowania stanu odtwarzania
-
+    
+    # Licznik do sprawdzania stanu odtwarzania
+    check_counter = 0
+    CHECK_INTERVAL = 30  # Sprawdzaj co 30 klatek (około 1 sekunda przy 30 FPS)
+    
     while True:
-        # Uruchamiamy pobieranie metadanych w tle
-        title, artist, album, cover_path = load_metadata()
-
-        if should_switch_to_player:
-            print("[DEBUG] Changing to player screen...")
-            current_screen = "player"
-            should_switch_to_player = False  # Resetujemy flagę po przełączeniu
-
-        if should_switch_to_clock:
-            print("[DEBUG] Changing to clock screen...")
-            current_screen = "clock"
-            should_switch_to_clock = False  # Resetujemy flagę po przełączeniu
-
-        if current_screen == "clock":
-            result = run_clock_screen(screen, test_mode=test_mode)
-            if result == "player":
-                should_switch_to_player = True  # Ustawiamy flagę do przełączenia na player
+        try:
+            # Sprawdź stan odtwarzania co określony interwał
+            check_counter += 1
+            if check_counter >= CHECK_INTERVAL:
+                check_counter = 0
+                # Pobierz aktualne informacje o utworze
+                track_info = get_current_track_info_shairport()
+                logger.debug(f"Stan odtwarzania: {active_state}, Track info: {track_info}")
+                
+                # Przełącz ekran na podstawie stanu odtwarzania
+                if active_state and current_screen == "clock":
+                    logger.debug("Wykryto odtwarzanie - przełączanie na ekran odtwarzacza")
+                    current_screen = "player"
+                elif not active_state and current_screen == "player":
+                    logger.debug("Brak odtwarzania - przełączanie na ekran zegara")
+                    current_screen = "clock"
+            
+            # Uruchom odpowiedni ekran
+            if current_screen == "clock":
+                next_screen = run_clock_screen(screen)
             else:
-                break
-        elif current_screen == "player":
-            result = run_player_screen(screen, test_mode=test_mode)
-            if result == "clock":
-                should_switch_to_clock = True  # Ustawiamy flagę do przełączenia na clock
-            elif title is None or artist is None:  # Sprawdzenie, czy muzyka jest zatrzymana
-                should_switch_to_clock = True  # Po zakończeniu połączenia przechodzimy na zegar
-            else:
-                # Muzyka wciąż odtwarzana
-                last_playing_status = (title, artist, album, cover_path)
-                continue
-
-    # Wyczyść ekran przed wyjściem
-    screen.fill((0, 0, 0))
-    pygame.display.flip()
-    pygame.time.delay(200)
-
-    pygame.quit()
-    sys.exit()
+                next_screen = run_player_screen(screen)
+            
+            # Jeśli ekran zwrócił następny ekran, przełącz
+            if next_screen:
+                logger.debug(f"Przełączanie na ekran: {next_screen}")
+                current_screen = next_screen
+            
+            clock.tick(30)
+            
+        except Exception as e:
+            logger.error(f"Błąd w głównej pętli: {e}")
+            pygame.quit()
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()
