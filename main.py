@@ -19,19 +19,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-should_switch_to_player = False  # Flaga do przełączania na ekran player
-should_switch_to_clock = False   # Flaga do przełączania na ekran zegara
-
-def load_metadata():
-    """Funkcja, która będzie odpowiedzialna za pobieranie metadanych w tle."""
-    title, artist, album, cover_path = get_current_track_info_shairport()
-    return title, artist, album, cover_path
-
-def get_current_track_info_shairport():
-    # Mock function to emulate getting track info from Shairport
-    # Replace this with actual implementation
-    return None, None, None, None
-
 def start_shairport_listener():
     """Uruchamia listener Shairport w osobnym wątku."""
     thread = threading.Thread(target=read_shairport_metadata, daemon=True)
@@ -76,10 +63,12 @@ def main():
                 result = run_clock_screen(screen)
                 if result == "player":
                     current_screen = "player"
+                    reset_switch_flags()
             else:
                 result = run_player_screen(screen)
                 if result == "clock":
                     current_screen = "clock"
+                    reset_switch_flags()
 
     except KeyboardInterrupt:
         logger.info("Application terminated by user")

@@ -6,7 +6,6 @@ import pygame
 import cairosvg
 import io
 import logging
-import json
 from services.shairport_listener import (
     get_current_track_info_shairport,
     get_active_state,
@@ -81,6 +80,7 @@ def run_player_screen(screen, test_mode=False):
                 delta_y = start_y - end_y  # Zmiana na odwrócony gest
                 if delta_y > SWIPE_THRESHOLD:
                     pygame.event.clear()
+                    reset_switch_flags()
                     return "clock"  # Przechodzimy do zegarka
                 start_y = None
 
