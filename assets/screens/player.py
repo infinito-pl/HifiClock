@@ -7,7 +7,7 @@ import cairosvg
 import io
 import logging
 import json
-from services.shairport_listener import read_shairport_metadata
+from services.shairport_listener import read_shairport_metadata, get_current_track_info_shairport
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -26,17 +26,6 @@ def get_active_state():
     except (FileNotFoundError, json.JSONDecodeError):
         return False
 
-try:
-    # Próbujemy zaimportować metadane z main.py
-    import main
-except ImportError:
-    # Fallback do bezpośredniego importu jeśli main nie jest dostępny
-    try:
-        from services.shairport_listener import get_current_track_info_shairport
-    except ImportError:
-        def get_current_track_info_shairport():
-            return (None, None, None, None)
-
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 def truncate_text(text, max_length=30):
@@ -49,7 +38,7 @@ def load_and_render_svg(file_path, width, height):
     icon_image = pygame.transform.scale(icon_image, (width, height))
     return icon_image
 
-def run_player_screen(screen, test_mode=False):
+def run_player_screen(screen, test_mode=False, metadata=None):
     WIDTH, HEIGHT = 800, 800
     CENTER_X = WIDTH // 2
     CENTER_Y = HEIGHT // 2
@@ -82,6 +71,8 @@ def run_player_screen(screen, test_mode=False):
     pause_icon = load_and_render_svg(os.path.join(BASE_DIR, "assets", "icons", "btn_pause.svg"), 158, 158)
     
     is_playing = False  # Zmienna do kontrolowania stanu odtwarzania
+    last_log_time = 0  # Czas ostatniego logu dla active_state
+    LOG_INTERVAL = 5   # Interwał logowania stanu w sekundach
 
     while running:
         for event in pygame.event.get():
@@ -104,15 +95,15 @@ def run_player_screen(screen, test_mode=False):
 
         screen.fill(BACKGROUND_COLOR)
 
-        # Pobranie metadanych z głównego modułu lub bezpośrednio
-        try:
-            import main
-            title = main.global_title
-            artist = main.global_artist
-            album = main.global_album
-            cover_path = main.global_cover_path
-            is_playing = main.global_is_playing
-        except (ImportError, AttributeError):
+        # Używamy metadanych przekazanych jako parametr
+        if metadata and metadata.get('title') and metadata.get('artist'):
+            title = metadata['title']
+            artist = metadata['artist']
+            album = metadata.get('album', '')
+            cover_path = metadata.get('cover_path')
+            is_playing = metadata.get('is_playing', False)
+            logger.debug(f"Wyświetlam utwór: {title} - {artist}")
+        else:
             # Fallback - bezpośrednie pobieranie metadanych
             title, artist, album, cover_path = get_current_track_info_shairport()
         
@@ -146,9 +137,13 @@ def run_player_screen(screen, test_mode=False):
             title_surface = font_title.render(title, True, WHITE)
             screen.blit(title_surface, (CENTER_X - title_surface.get_width() // 2, CENTER_Y + 100))
 
-        # Renderowanie ikony play/pause
+        # Renderowanie ikony play/pause i ograniczenie logowania
         current_active_state = get_active_state()
-        logger.debug(f"Active state (icon): {current_active_state}")
+        current_time = time.time()
+        if current_time - last_log_time > LOG_INTERVAL:
+            logger.debug(f"Active state (icon): {current_active_state}")
+            last_log_time = current_time
+            
         if current_active_state:
             screen.blit(pause_icon, (CENTER_X - pause_icon.get_width() // 2, CENTER_Y - pause_icon.get_height() // 2))
         else:

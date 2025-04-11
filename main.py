@@ -109,7 +109,18 @@ def main():
             else:
                 break
         elif current_screen == "player":
-            result = run_player_screen(screen, test_mode=test_mode)
+            # Przekazujemy metadane jako parametr do run_player_screen
+            result = run_player_screen(
+                screen, 
+                test_mode=test_mode, 
+                metadata={
+                    'title': global_title,
+                    'artist': global_artist,
+                    'album': global_album,
+                    'cover_path': global_cover_path,
+                    'is_playing': global_is_playing
+                }
+            )
             if result == "clock":
                 should_switch_to_clock = True  # Ustawiamy flagę do przełączenia na clock
             elif not global_is_playing:  # Sprawdzenie, czy muzyka jest zatrzymana
