@@ -64,16 +64,24 @@ def init_cover_cache():
         logger.error(f"Error creating cover cache directory: {e}")
 
 def init_state_file():
-    if not os.path.exists(STATE_FILE):
-        logger.debug(f"Creating state file: {STATE_FILE}")
-        default_state = {
-            "active_state": False,
-            "should_switch_to_player": False,
-            "should_switch_to_clock": False
-        }
-        with open(STATE_FILE, 'w') as f:
-            json.dump(default_state, f)
-        logger.debug("State file initialized with default values")
+    """Inicjalizuje plik stanu z domyślnymi wartościami."""
+    try:
+        # Utwórz katalog state jeśli nie istnieje
+        os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+        
+        if not os.path.exists(STATE_FILE):
+            logger.debug(f"Tworzenie pliku stanu: {STATE_FILE}")
+            default_state = {
+                "active_state": False,
+                "should_switch_to_player": False,
+                "should_switch_to_clock": False,
+                "last_metadata": last_metadata
+            }
+            with open(STATE_FILE, 'w') as f:
+                json.dump(default_state, f)
+            logger.debug("Plik stanu zainicjalizowany z wartościami domyślnymi")
+    except Exception as e:
+        logger.error(f"Błąd podczas inicjalizacji pliku stanu: {e}")
 
 def save_state():
     """Zapisuje aktualny stan odtwarzania do pliku."""
