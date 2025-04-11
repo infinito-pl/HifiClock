@@ -205,20 +205,18 @@ def read_shairport_metadata():
                 if "Enter Active State" in line or "Play -- first frame received" in line or "Resume" in line:
                     logger.debug("Detected play/resume event")
                     active_state = True
-                    logger.debug(f"Setting active_state to {active_state}")
                     should_switch_to_player = True
                     should_switch_to_clock = False
                     save_state()
-                    logger.debug("Shairport entered active state")
+                    logger.debug(f"Setting active_state to {active_state}, should_switch_to_player to {should_switch_to_player}")
 
-                elif "Exit Active State" in line or "Pause" in line or "Stop" in line:
-                    logger.debug("Detected pause/stop event")
+                elif "Exit Active State" in line or "Pause" in line or "Stop" in line or "Play Session End" in line or "disconnected" in line:
+                    logger.debug("Detected pause/stop/disconnect event")
                     active_state = False
-                    logger.debug(f"Setting active_state to {active_state}")
                     should_switch_to_player = False
                     should_switch_to_clock = True
                     save_state()
-                    logger.debug("Shairport exited active state")
+                    logger.debug(f"Setting active_state to {active_state}, should_switch_to_clock to {should_switch_to_clock}")
 
                 # Regularly fetch metadata when active
                 if active_state:
@@ -238,15 +236,19 @@ def read_shairport_metadata():
 
         except Exception as e:
             logger.error(f"Error in reading shairport metadata: {e}")
-        time.sleep(3)  # Wait for 3 seconds before the next attempt
+        time.sleep(1)  # Zmniejszony czas oczekiwania do 1 sekundy
     logger.debug("Exiting read_shairport_metadata")
 
 def should_switch_to_player_screen():
     """Sprawdza czy należy przełączyć na ekran odtwarzacza."""
+    global should_switch_to_player
+    logger.debug(f"Checking should_switch_to_player: {should_switch_to_player}")
     return should_switch_to_player
 
 def should_switch_to_clock_screen():
     """Sprawdza czy należy przełączyć na ekran zegara."""
+    global should_switch_to_clock
+    logger.debug(f"Checking should_switch_to_clock: {should_switch_to_clock}")
     return should_switch_to_clock
 
 def reset_switch_flags():
@@ -254,6 +256,7 @@ def reset_switch_flags():
     global should_switch_to_player, should_switch_to_clock
     should_switch_to_player = False
     should_switch_to_clock = False
+    logger.debug("Reset flags: should_switch_to_player=False, should_switch_to_clock=False")
 
 # Main function to start the listener
 if __name__ == "__main__":
