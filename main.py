@@ -99,15 +99,18 @@ def main():
             # Uruchom odpowiedni ekran
             if current_screen == "clock":
                 next_screen = run_clock_screen(screen)
+                if next_screen == "player":
+                    logger.debug("=== Przełączanie na ekran odtwarzacza przez gest ===")
+                    current_screen = "player"
+                    reset_switch_flags()
+                    logger.debug(f"Nowy ekran: {current_screen}")
             else:
                 next_screen = run_player_screen(screen)
-            
-            # Jeśli ekran zwrócił następny ekran, przełącz
-            if next_screen:
-                logger.debug(f"Ekran zwrócił następny ekran: {next_screen}")
-                current_screen = next_screen
-                reset_switch_flags()  # Resetuj flagi przed przejściem do nowego ekranu
-                logger.debug(f"Nowy ekran: {current_screen}")
+                if next_screen == "clock":
+                    logger.debug("=== Przełączanie na ekran zegara przez gest ===")
+                    current_screen = "clock"
+                    reset_switch_flags()
+                    logger.debug(f"Nowy ekran: {current_screen}")
             
             clock.tick(30)
             
