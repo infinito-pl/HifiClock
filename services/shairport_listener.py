@@ -19,6 +19,12 @@ last_title = last_artist = last_album = last_cover = None
 active_state = False
 should_switch_to_player = False
 should_switch_to_clock = False
+last_metadata = {
+    "title": "",
+    "artist": "",
+    "album": "",
+    "cover": DEFAULT_COVER
+}
 
 PIPE_PATH = "/tmp/shairport-sync-metadata"
 COVER_CACHE_DIR = "/tmp/shairport-sync/.cache/coverart"
@@ -232,6 +238,20 @@ def read_shairport_metadata():
             logger.error(f"Error in reading shairport metadata: {e}")
         time.sleep(3)  # Wait for 3 seconds before the next attempt
     logger.debug("Exiting read_shairport_metadata")
+
+def should_switch_to_player_screen():
+    """Sprawdza czy należy przełączyć na ekran odtwarzacza."""
+    return should_switch_to_player
+
+def should_switch_to_clock_screen():
+    """Sprawdza czy należy przełączyć na ekran zegara."""
+    return should_switch_to_clock
+
+def reset_switch_flags():
+    """Resetuje flagi przełączania ekranów."""
+    global should_switch_to_player, should_switch_to_clock
+    should_switch_to_player = False
+    should_switch_to_clock = False
 
 # Main function to start the listener
 if __name__ == "__main__":

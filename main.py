@@ -48,13 +48,15 @@ def main():
                 track_info = get_current_track_info_shairport()
                 logger.debug(f"Stan odtwarzania: {active_state}, Track info: {track_info}")
                 
-                # Przełącz ekran na podstawie stanu odtwarzania
-                if active_state and current_screen == "clock":
-                    logger.debug("Wykryto odtwarzanie - przełączanie na ekran odtwarzacza")
+                # Sprawdź czy należy przełączyć ekran
+                if should_switch_to_player_screen() and current_screen == "clock":
+                    logger.debug("Przełączanie na ekran odtwarzacza")
                     current_screen = "player"
-                elif not active_state and current_screen == "player":
-                    logger.debug("Brak odtwarzania - przełączanie na ekran zegara")
+                    reset_switch_flags()
+                elif should_switch_to_clock_screen() and current_screen == "player":
+                    logger.debug("Przełączanie na ekran zegara")
                     current_screen = "clock"
+                    reset_switch_flags()
             
             # Uruchom odpowiedni ekran
             if current_screen == "clock":
